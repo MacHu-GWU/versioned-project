@@ -52,6 +52,10 @@ Welcome to ``versioned`` Documentation
 ==============================================================================
 The version and alias best practice for immutable artifacts and deployment.
 
+Tutorial:
+
+- `Quick Start <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/Quick-Start.ipynb>`_
+
 
 .. _install:
 

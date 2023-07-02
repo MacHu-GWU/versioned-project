@@ -56,19 +56,19 @@ class Alias:
     :param name: artifact name.
     :param alias: alias name. alias name cannot have hyphen
     :param version: artifact version. If ``None``, the latest version is used.
-    :param additional_version: see above.
-    :param additional_version_weight: an integer between 0 ~ 100.
+    :param secondary_version: see above.
+    :param secondary_version_weight: an integer between 0 ~ 100.
     :param version_s3uri: s3uri of the primary artifact version of this alias.
-    :param additional_version_s3uri: s3uri of the additional artifact version of this alias.
+    :param secondary_version_s3uri: s3uri of the secondary artifact version of this alias.
     """
 
     name: str
     alias: str
     version: str
-    additional_version: T.Optional[str]
-    additional_version_weight: T.Optional[int]
+    secondary_version: T.Optional[str]
+    secondary_version_weight: T.Optional[int]
     version_s3uri: str
-    additional_version_s3uri: T.Optional[str]
+    secondary_version_s3uri: T.Optional[str]
 
     @property
     def s3path_version(self) -> S3Path:
@@ -84,17 +84,17 @@ class Alias:
         return self.s3path_version.read_bytes(bsm=bsm)
 
     @property
-    def s3path_additional_version(self) -> S3Path:
+    def s3path_secondary_version(self) -> S3Path:
         """
-        Return the s3path of the additional artifact version of this alias.
+        Return the s3path of the secondary artifact version of this alias.
         """
-        return S3Path(self.additional_version_s3uri)
+        return S3Path(self.secondary_version_s3uri)
 
-    def get_additional_version_content(self, bsm: BotoSesManager) -> bytes:
+    def get_secondary_version_content(self, bsm: BotoSesManager) -> bytes:
         """
-        Get the content of the additional artifact version of this alias.
+        Get the content of the secondary artifact version of this alias.
         """
-        return self.s3path_additional_version.read_bytes(bsm=bsm)
+        return self.s3path_secondary_version.read_bytes(bsm=bsm)
 
 
 def _get_artifact_class(bsm: BotoSesManager) -> T.Type[dynamodb.Artifact]:
@@ -150,13 +150,13 @@ def _get_alias_dict(
         name=alias.name,
         version=alias.version,
     ).uri
-    if alias.additional_version is None:
-        dct["additional_version_s3uri"] = None
+    if alias.secondary_version is None:
+        dct["secondary_version_s3uri"] = None
     else:
-        dct["additional_version_s3uri"] = _get_s3path(
+        dct["secondary_version_s3uri"] = _get_s3path(
             bsm=bsm,
             name=alias.name,
-            version=alias.additional_version,
+            version=alias.secondary_version,
         ).uri
     return Alias(**dct)
 
@@ -256,7 +256,7 @@ def publish_artifact_version(
     name: str,
 ) -> Artifact:
     """
-    Creates a version from the latest artifact. Use versions to create a
+    Creates a version from the latest artifact. Use versions to create an
     immutable snapshot of your latest artifact.
 
     :param bsm: ``boto_session_manager.BotoSesManager`` object.
@@ -313,49 +313,49 @@ def put_alias(
     name: str,
     alias: str,
     version: T.Optional[T.Union[int, str]] = None,
-    additional_version: T.Optional[T.Union[int, str]] = None,
-    additional_version_weight: T.Optional[int] = None,
+    secondary_version: T.Optional[T.Union[int, str]] = None,
+    secondary_version_weight: T.Optional[int] = None,
 ) -> Alias:
     """
     Creates an alias for an artifact version. If ``version`` is not specified,
     the latest version is used.
 
     You can also map an alias to split invocation requests between two versions.
-    Use the ``additional_version`` and ``additional_version_weight`` to specify
+    Use the ``secondary_version`` and ``secondary_version_weight`` to specify
     a second version and the percentage of invocation requests that it receives.
 
     :param bsm: ``boto_session_manager.BotoSesManager`` object.
     :param name: artifact name.
     :param alias: alias name. alias name cannot have hyphen
     :param version: artifact version. If ``None``, the latest version is used.
-    :param additional_version: see above.
-    :param additional_version_weight: an integer between 0 ~ 100.
+    :param secondary_version: see above.
+    :param secondary_version_weight: an integer between 0 ~ 100.
     """
     # validate argument
     if "-" in alias:  # pragma: no cover
         raise ValueError("alias cannot have hyphen")
 
-    if additional_version is not None:
-        if not isinstance(additional_version_weight, int):
-            raise TypeError("additional_version_weight must be int")
-        if not (0 <= additional_version_weight < 100):
-            raise ValueError("additional_version_weight must be 0 <= x < 100")
+    if secondary_version is not None:
+        if not isinstance(secondary_version_weight, int):
+            raise TypeError("secondary_version_weight must be int")
+        if not (0 <= secondary_version_weight < 100):
+            raise ValueError("secondary_version_weight must be 0 <= x < 100")
 
     # ensure the artifact exists
     Artifact = _get_artifact_class(bsm)
     if version is None:
         version = constants.LATEST_VERSION
     _get_artifact_dynamodb_item(Artifact, name=name, version=version)
-    if additional_version is not None:
-        _get_artifact_dynamodb_item(Artifact, name=name, version=additional_version)
+    if secondary_version is not None:
+        _get_artifact_dynamodb_item(Artifact, name=name, version=secondary_version)
 
     Alias = _get_alias_class(bsm)
     alias = Alias.new(
         name=name,
         alias=alias,
         version=version,
-        additional_version=additional_version,
-        additional_version_weight=additional_version_weight,
+        secondary_version=secondary_version,
+        secondary_version_weight=secondary_version_weight,
     )
 
     alias.save()

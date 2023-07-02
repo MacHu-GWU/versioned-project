@@ -28,8 +28,8 @@ def test():
     _ = api.Artifact.get_content
     _ = api.Alias.s3path_version
     _ = api.Alias.get_version_content
-    _ = api.Alias.s3path_additional_version
-    _ = api.Alias.get_additional_version_content
+    _ = api.Alias.s3path_secondary_version
+    _ = api.Alias.get_secondary_version_content
 
 if __name__ == "__main__":
     from versioned.tests import run_cov_test

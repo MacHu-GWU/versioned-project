@@ -113,38 +113,38 @@ class Test(BaseMockTest):
         with pytest.raises(exc.ArtifactNotFoundError):
             put_alias(bsm=self.bsm, name=name, alias=alias, version=999)
 
-        # additional_version_weight type is wrong
+        # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
-            put_alias(bsm=self.bsm, name=name, alias=alias, additional_version=999)
+            put_alias(bsm=self.bsm, name=name, alias=alias, secondary_version=999)
 
-        # additional_version_weight type is wrong
+        # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
             put_alias(
                 bsm=self.bsm,
                 name=name,
                 alias=alias,
-                additional_version=999,
-                additional_version_weight=0.5,
+                secondary_version=999,
+                secondary_version_weight=0.5,
             )
 
-        # additional_version_weight value range is wrong
+        # secondary_version_weight value range is wrong
         with pytest.raises(ValueError):
             put_alias(
                 bsm=self.bsm,
                 name=name,
                 alias=alias,
-                additional_version=999,
-                additional_version_weight=-100,
+                secondary_version=999,
+                secondary_version_weight=-100,
             )
 
-        # additional_version_weight value range is wrong
+        # secondary_version_weight value range is wrong
         with pytest.raises(ValueError):
             put_alias(
                 bsm=self.bsm,
                 name=name,
                 alias=alias,
-                additional_version=999,
-                additional_version_weight=999,
+                secondary_version=999,
+                secondary_version_weight=999,
             )
 
         # try to put alias on non-exist artifact
@@ -153,19 +153,19 @@ class Test(BaseMockTest):
                 bsm=self.bsm,
                 name=name,
                 alias=alias,
-                additional_version=999,
-                additional_version_weight=20,
+                secondary_version=999,
+                secondary_version_weight=20,
             )
 
-        # version and additional_version is the same
+        # version and secondary_version is the same
         with pytest.raises(ValueError):
             put_alias(
                 bsm=self.bsm,
                 name=name,
                 alias=alias,
                 version=1,
-                additional_version=1,
-                additional_version_weight=20,
+                secondary_version=1,
+                secondary_version_weight=20,
             )
 
         # alias not exists
@@ -180,10 +180,10 @@ class Test(BaseMockTest):
             assert ali.name == name
             assert ali.alias == alias
             assert ali.version == constants.LATEST_VERSION
-            assert ali.additional_version is None
-            assert ali.additional_version_weight is None
+            assert ali.secondary_version is None
+            assert ali.secondary_version_weight is None
             assert ali.version_s3uri.endswith(constants.LATEST_VERSION)
-            assert ali.additional_version_s3uri is None
+            assert ali.secondary_version_s3uri is None
             assert ali.get_version_content(bsm=self.bsm) == b"v2"
 
         _assert_alias(ali)
@@ -202,8 +202,8 @@ class Test(BaseMockTest):
             name=name,
             alias=alias,
             version=1,
-            additional_version=2,
-            additional_version_weight=20,
+            secondary_version=2,
+            secondary_version_weight=20,
         )
         # rprint(ali)
 
@@ -211,12 +211,12 @@ class Test(BaseMockTest):
             assert ali.name == name
             assert ali.alias == alias
             assert ali.version == "1"
-            assert ali.additional_version == "2"
-            assert ali.additional_version_weight == 20
+            assert ali.secondary_version == "2"
+            assert ali.secondary_version_weight == 20
             assert ali.version_s3uri.endswith(encode_version(1))
-            assert ali.additional_version_s3uri.endswith(encode_version(2))
+            assert ali.secondary_version_s3uri.endswith(encode_version(2))
             assert ali.get_version_content(bsm=self.bsm) == b"v1"
-            assert ali.get_additional_version_content(bsm=self.bsm) == b"v2"
+            assert ali.get_secondary_version_content(bsm=self.bsm) == b"v2"
 
         _assert_alias(ali)
 

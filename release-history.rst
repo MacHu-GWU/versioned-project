@@ -23,6 +23,7 @@ x.y.z (Backlog)
 - rename ``versioned.api.list_artifacts`` to ``versioned.api.list_artifact_versions``
 - rename ``versioned.api.delete_artifact`` to ``versioned.api.delete_artifact_version``
 - rename ``versioned.api.purge`` to ``versioned.api.purge_artifact``
+- rename ``additional_version`` to ``secondary_version``
 
 
 0.1.1 (2023-07-01)

@@ -80,10 +80,10 @@ class Alias(Base):
     Todo: docstring
     """
     version: T.Union[str, UnicodeAttribute] = UnicodeAttribute()
-    additional_version: T.Optional[T.Union[str, UnicodeAttribute]] = UnicodeAttribute(
+    secondary_version: T.Optional[T.Union[str, UnicodeAttribute]] = UnicodeAttribute(
         null=True,
     )
-    additional_version_weight: T.Optional[
+    secondary_version_weight: T.Optional[
         T.Union[int, NumberAttribute]
     ] = NumberAttribute(
         null=True,
@@ -95,23 +95,23 @@ class Alias(Base):
         name: str,
         alias: str,
         version: T.Optional[T.Union[int, str]] = None,
-        additional_version: T.Optional[T.Union[int, str]] = None,
-        additional_version_weight: T.Optional[int] = None,
+        secondary_version: T.Optional[T.Union[int, str]] = None,
+        secondary_version_weight: T.Optional[int] = None,
     ):
         if version is None:
             version = LATEST_VERSION
         version = encode_version(version)
-        if additional_version is not None:
-            additional_version = encode_version(additional_version)
-            if version == additional_version:
+        if secondary_version is not None:
+            secondary_version = encode_version(secondary_version)
+            if version == secondary_version:
                 raise ValueError
 
         return cls(
             pk=encode_alias_key(name),
             sk=alias,
             version=version,
-            additional_version=additional_version,
-            additional_version_weight=additional_version_weight,
+            secondary_version=secondary_version,
+            secondary_version_weight=secondary_version_weight,
         )
 
     @property
@@ -123,14 +123,14 @@ class Alias(Base):
         return self.sk
 
     def to_dict(self) -> dict:
-        if self.additional_version is None:
-            additional_version = None
+        if self.secondary_version is None:
+            secondary_version = None
         else:
-            additional_version = self.additional_version.lstrip("0")
+            secondary_version = self.secondary_version.lstrip("0")
         return {
             "name": self.name,
             "alias": self.alias,
             "version": self.version.lstrip("0"),
-            "additional_version": additional_version,
-            "additional_version_weight": self.additional_version_weight,
+            "secondary_version": secondary_version,
+            "secondary_version_weight": self.secondary_version_weight,
         }
