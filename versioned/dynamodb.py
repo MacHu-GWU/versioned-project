@@ -23,6 +23,9 @@ def get_utc_now() -> datetime:
 def encode_version(version: T.Union[int, str]) -> str:
     return str(version).zfill(VERSION_ZFILL)
 
+def encode_alias_key(name: str) -> str:
+    return f"__{name}-alias"
+
 
 class Base(Model):
     pk: T.Union[str, UnicodeAttribute] = UnicodeAttribute(hash_key=True)
@@ -104,7 +107,7 @@ class Alias(Base):
                 raise ValueError
 
         return cls(
-            pk=f"__{name}-alias",
+            pk=encode_alias_key(name),
             sk=alias,
             version=version,
             additional_version=additional_version,

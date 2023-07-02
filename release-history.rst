@@ -15,6 +15,16 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
+0.1.2 (2023-07-01)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Miscellaneous**
+
+- rename ``versioned.api.get_artifact`` to ``versioned.api.get_artifact_version``
+- rename ``versioned.api.list_artifacts`` to ``versioned.api.list_artifact_versions``
+- rename ``versioned.api.delete_artifact`` to ``versioned.api.delete_artifact_version``
+- rename ``versioned.api.purge`` to ``versioned.api.purge_artifact``
+
+
 0.1.1 (2023-07-01)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**

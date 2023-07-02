@@ -210,7 +210,7 @@ def _get_artifact_dynamodb_item(
         raise exc.ArtifactNotFoundError(f"name = {name!r}, version = {version!r}")
 
 
-def get_artifact(
+def get_artifact_version(
     bsm: BotoSesManager,
     name: str,
     version: T.Optional[T.Union[int, str]] = None,
@@ -229,7 +229,7 @@ def get_artifact(
     return _get_artifact_dict(bsm=bsm, artifact=artifact)
 
 
-def list_artifacts(
+def list_artifact_versions(
     bsm: BotoSesManager,
     name: str,
 ) -> T.List[Artifact]:
@@ -251,7 +251,7 @@ def list_artifacts(
     ]
 
 
-def publish_version(
+def publish_artifact_version(
     bsm: BotoSesManager,
     name: str,
 ) -> Artifact:
@@ -279,7 +279,7 @@ def publish_version(
     return _get_artifact_dict(bsm=bsm, artifact=artifact)
 
 
-def delete_artifact(
+def delete_artifact_version(
     bsm: BotoSesManager,
     name: str,
     version: T.Optional[T.Union[int, str]] = None,
@@ -379,7 +379,7 @@ def get_alias(
         return _get_alias_dict(
             bsm=bsm,
             alias=Alias.get(
-                hash_key=f"__{name}-alias",
+                hash_key=dynamodb.encode_alias_key(name),
                 range_key=alias,
             ),
         )
@@ -400,7 +400,7 @@ def list_aliases(
     Alias = _get_alias_class(bsm)
     return [
         _get_alias_dict(bsm=bsm, alias=alias)
-        for alias in Alias.query(hash_key=f"__{name}-alias")
+        for alias in Alias.query(hash_key=dynamodb.encode_alias_key(name))
     ]
 
 
@@ -417,7 +417,7 @@ def delete_alias(
     # print(res)
 
 
-def purge(
+def purge_artifact(
     bsm: BotoSesManager,
     name: str,
 ):
@@ -439,5 +439,5 @@ def purge(
         for artifact in Artifact.query(hash_key=name):
             batch.delete(artifact)
     with Alias.batch_write() as batch:
-        for alias in Alias.query(hash_key=f"__{name}-alias"):
+        for alias in Alias.query(hash_key=dynamodb.encode_alias_key(name)):
             batch.delete(alias)

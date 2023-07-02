@@ -12,15 +12,15 @@ from versioned.dynamodb import encode_version
 from versioned.tests.mock_aws import BaseMockTest
 from versioned.core import (
     put_artifact,
-    list_artifacts,
-    get_artifact,
-    publish_version,
-    delete_artifact,
+    list_artifact_versions,
+    get_artifact_version,
+    publish_artifact_version,
+    delete_artifact_version,
     put_alias,
     get_alias,
     list_aliases,
     delete_alias,
-    purge,
+    purge_artifact,
 )
 
 from rich import print as rprint
@@ -44,7 +44,7 @@ class Test(BaseMockTest):
         name = "deploy"
         alias = "LIVE"
 
-        purge(bsm=self.bsm, name=name)
+        purge_artifact(bsm=self.bsm, name=name)
 
         # ======================================================================
         # Artifact
@@ -52,12 +52,12 @@ class Test(BaseMockTest):
         # --- test ArtifactNotFoundError ---
         # at this moment, no artifact exists
         with pytest.raises(exc.ArtifactNotFoundError):
-            publish_version(bsm=self.bsm, name=name)
+            publish_artifact_version(bsm=self.bsm, name=name)
 
         with pytest.raises(exc.ArtifactNotFoundError):
-            get_artifact(bsm=self.bsm, name=name)
+            get_artifact_version(bsm=self.bsm, name=name)
 
-        artifact_list = list_artifacts(bsm=self.bsm, name=name)
+        artifact_list = list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 0
 
         # put artifact
@@ -72,16 +72,16 @@ class Test(BaseMockTest):
 
         _assert_artifact(artifact)
 
-        artifact = get_artifact(bsm=self.bsm, name=name)
+        artifact = get_artifact_version(bsm=self.bsm, name=name)
         # rprint(artifact)
         _assert_artifact(artifact)
 
-        artifact_list = list_artifacts(bsm=self.bsm, name=name)
+        artifact_list = list_artifact_versions(bsm=self.bsm, name=name)
         # rprint(artifact_list)
         assert len(artifact_list) == 1
         _assert_artifact(artifact_list[0])
 
-        artifact = publish_version(bsm=self.bsm, name=name)
+        artifact = publish_artifact_version(bsm=self.bsm, name=name)
         # rprint(artifact)
         assert artifact.version == "1"
         assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL))
@@ -94,7 +94,7 @@ class Test(BaseMockTest):
         assert artifact.version == constants.LATEST_VERSION
         assert S3Path(artifact.s3uri).read_text(bsm=self.bsm) == "v2"
 
-        artifact = publish_version(bsm=self.bsm, name=name)
+        artifact = publish_artifact_version(bsm=self.bsm, name=name)
         # rprint(artifact)
         assert artifact.version == "2"
         s3path = S3Path(artifact.s3uri)
@@ -102,7 +102,7 @@ class Test(BaseMockTest):
         assert artifact.s3path.basename == str("2").zfill(constants.VERSION_ZFILL)
         assert artifact.get_content(bsm=self.bsm) == b"v2"
 
-        artifact_list = list_artifacts(bsm=self.bsm, name=name)
+        artifact_list = list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 3
 
         # ======================================================================
@@ -235,16 +235,16 @@ class Test(BaseMockTest):
         ali_list = list_aliases(bsm=self.bsm, name=name)
         assert len(ali_list) == 0
 
-        delete_artifact(bsm=self.bsm, name=name)
+        delete_artifact_version(bsm=self.bsm, name=name)
         with pytest.raises(exc.ArtifactNotFoundError):
-            get_artifact(bsm=self.bsm, name=name)
-        artifact_list = list_artifacts(bsm=self.bsm, name=name)
+            get_artifact_version(bsm=self.bsm, name=name)
+        artifact_list = list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 2
 
-        delete_artifact(bsm=self.bsm, name=name, version=1)
+        delete_artifact_version(bsm=self.bsm, name=name, version=1)
         with pytest.raises(exc.ArtifactNotFoundError):
-            get_artifact(bsm=self.bsm, name=name, version=1)
-        artifact_list = list_artifacts(bsm=self.bsm, name=name)
+            get_artifact_version(bsm=self.bsm, name=name, version=1)
+        artifact_list = list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 1
 
         # it is a soft delete, so S3 artifact is not deleted
@@ -258,9 +258,9 @@ class Test(BaseMockTest):
         ali_list = list_aliases(bsm=self.bsm, name=name)
         assert len(ali_list) == 1
 
-        purge(bsm=self.bsm, name=name)
+        purge_artifact(bsm=self.bsm, name=name)
         assert s3path.parent.count_objects(bsm=self.bsm) == 0
-        artifact_list = list_artifacts(bsm=self.bsm, name=name)
+        artifact_list = list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 0
         ali_list = list_aliases(bsm=self.bsm, name=name)
         assert len(ali_list) == 0

@@ -14,12 +14,12 @@ from .bootstrap import bootstrap
 from .core import Artifact
 from .core import Alias
 from .core import put_artifact
-from .core import get_artifact
-from .core import list_artifacts
-from .core import publish_version
-from .core import delete_artifact
+from .core import get_artifact_version
+from .core import list_artifact_versions
+from .core import publish_artifact_version
+from .core import delete_artifact_version
 from .core import put_alias
 from .core import get_alias
 from .core import list_aliases
 from .core import delete_alias
-from .core import purge
+from .core import purge_artifact
