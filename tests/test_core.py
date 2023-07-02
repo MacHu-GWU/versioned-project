@@ -27,7 +27,7 @@ from rich import print as rprint
 
 
 class Test(BaseMockTest):
-    use_mock = False
+    use_mock = True
 
     mock_list = [
         moto.mock_sts,
