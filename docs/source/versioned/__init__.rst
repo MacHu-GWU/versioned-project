@@ -16,5 +16,4 @@ sub packages and modules
     core <core>
     dynamodb <dynamodb>
     exc <exc>
-    s3 <s3>
     
