@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+Tje dynamodb backend to store metadata of artifacts, versions and aliases.
+"""
+
 import typing as T
 from datetime import datetime, timezone
 
@@ -29,6 +33,9 @@ class Base(Model):
 
 
 class Artifact(Base):
+    """
+    Todo: docstring
+    """
     update_at: T.Union[datetime, UTCDateTimeAttribute] = UTCDateTimeAttribute(
         default=get_utc_now,
     )
@@ -66,6 +73,9 @@ class Artifact(Base):
 
 
 class Alias(Base):
+    """
+    Todo: docstring
+    """
     version: T.Union[str, UnicodeAttribute] = UnicodeAttribute()
     additional_version: T.Optional[T.Union[str, UnicodeAttribute]] = UnicodeAttribute(
         null=True,

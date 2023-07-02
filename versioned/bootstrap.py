@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
+"""
+Todo: docstring
+"""
+
 import typing as T
-import boto3
 from boto_session_manager import BotoSesManager
 
-from pynamodb.models import PAY_PER_REQUEST_BILLING_MODE, WRITE_CAPACITY_UNITS
+from pynamodb.models import PAY_PER_REQUEST_BILLING_MODE
 from pynamodb.connection import Connection
 from . import constants
 from . import dynamodb
@@ -17,6 +20,10 @@ def bootstrap(
     skip_s3: bool = False,
     skip_dynamodb: bool = False,
 ):
+    """
+    Bootstrap the associated AWS account and region in the boto session manager.
+    Create the S3 bucket and DynamoDB table if not exist.
+    """
     # validate input arguments
     if sum(
         [

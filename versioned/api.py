@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+Public API.
+"""
+
 from . import exc
 from .constants import DYNAMODB_TABLE_NAME
 from .constants import BUCKET_NAME

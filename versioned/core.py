@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-try:  # pragma: no cover
-    import typing_extensions as T
-except ImportError:  # pragma: no cover
-    import typing as T
+import typing as T
 
 import dataclasses
 from datetime import datetime
