@@ -27,7 +27,7 @@ from rich import print as rprint
 
 
 class Test(BaseMockTest):
-    use_mock = True
+    use_mock = False
 
     mock_list = [
         moto.mock_sts,
@@ -68,7 +68,7 @@ class Test(BaseMockTest):
             assert artifact.name == name
             assert artifact.version == constants.LATEST_VERSION
             assert artifact.s3uri.endswith(constants.LATEST_VERSION)
-            assert S3Path(artifact.s3uri).read_text(bsm=self.bsm) == "v1"
+            assert artifact.get_content(bsm=self.bsm) == b"v1"
 
         _assert_artifact(artifact)
 
@@ -85,9 +85,8 @@ class Test(BaseMockTest):
         # rprint(artifact)
         assert artifact.version == "1"
         assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL))
-        s3path = S3Path(artifact.s3uri)
-        assert s3path.basename == str("1").zfill(constants.VERSION_ZFILL)
-        assert s3path.read_text(bsm=self.bsm) == "v1"
+        assert artifact.s3path.basename == str("1").zfill(constants.VERSION_ZFILL)
+        assert artifact.get_content(bsm=self.bsm) == b"v1"
 
         # put artifact again
         artifact = put_artifact(bsm=self.bsm, name=name, content=b"v2")
@@ -100,8 +99,8 @@ class Test(BaseMockTest):
         assert artifact.version == "2"
         s3path = S3Path(artifact.s3uri)
         assert artifact.s3uri.endswith("2".zfill(constants.VERSION_ZFILL))
-        assert s3path.basename == str("2").zfill(constants.VERSION_ZFILL)
-        assert s3path.read_text(bsm=self.bsm) == "v2"
+        assert artifact.s3path.basename == str("2").zfill(constants.VERSION_ZFILL)
+        assert artifact.get_content(bsm=self.bsm) == b"v2"
 
         artifact_list = list_artifacts(bsm=self.bsm, name=name)
         assert len(artifact_list) == 3
@@ -185,6 +184,7 @@ class Test(BaseMockTest):
             assert ali.additional_version_weight is None
             assert ali.version_s3uri.endswith(constants.LATEST_VERSION)
             assert ali.additional_version_s3uri is None
+            assert ali.get_version_content(bsm=self.bsm) == b"v2"
 
         _assert_alias(ali)
 
@@ -215,6 +215,8 @@ class Test(BaseMockTest):
             assert ali.additional_version_weight == 20
             assert ali.version_s3uri.endswith(encode_version(1))
             assert ali.additional_version_s3uri.endswith(encode_version(2))
+            assert ali.get_version_content(bsm=self.bsm) == b"v1"
+            assert ali.get_additional_version_content(bsm=self.bsm) == b"v2"
 
         _assert_alias(ali)
 

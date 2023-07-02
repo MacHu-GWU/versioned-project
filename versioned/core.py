@@ -27,11 +27,25 @@ class Artifact:
     :param s3uri: s3uri of the artifact version.
     :param sha256: sha256 of the content of the artifact version.
     """
+
     name: str
     version: str
     update_at: datetime
     s3uri: str
     sha256: str
+
+    @property
+    def s3path(self) -> S3Path:
+        """
+        Return the s3path of this artifact version.
+        """
+        return S3Path(self.s3uri)
+
+    def get_content(self, bsm: BotoSesManager) -> bytes:
+        """
+        Get the content of this artifact version.
+        """
+        return self.s3path.read_bytes(bsm=bsm)
 
 
 @dataclasses.dataclass
@@ -47,6 +61,7 @@ class Alias:
     :param version_s3uri: s3uri of the primary artifact version of this alias.
     :param additional_version_s3uri: s3uri of the additional artifact version of this alias.
     """
+
     name: str
     alias: str
     version: str
@@ -54,6 +69,32 @@ class Alias:
     additional_version_weight: T.Optional[int]
     version_s3uri: str
     additional_version_s3uri: T.Optional[str]
+
+    @property
+    def s3path_version(self) -> S3Path:
+        """
+        Return the s3path of the primary artifact version of this alias.
+        """
+        return S3Path(self.version_s3uri)
+
+    def get_version_content(self, bsm: BotoSesManager) -> bytes:
+        """
+        Get the content of the primary artifact version of this alias.
+        """
+        return self.s3path_version.read_bytes(bsm=bsm)
+
+    @property
+    def s3path_additional_version(self) -> S3Path:
+        """
+        Return the s3path of the additional artifact version of this alias.
+        """
+        return S3Path(self.additional_version_s3uri)
+
+    def get_additional_version_content(self, bsm: BotoSesManager) -> bytes:
+        """
+        Get the content of the additional artifact version of this alias.
+        """
+        return self.s3path_additional_version.read_bytes(bsm=bsm)
 
 
 def _get_artifact_class(bsm: BotoSesManager) -> T.Type[dynamodb.Artifact]:

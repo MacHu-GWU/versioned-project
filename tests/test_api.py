@@ -24,7 +24,12 @@ def test():
     _ = api.list_aliases
     _ = api.delete_alias
     _ = api.purge
-
+    _ = api.Artifact.s3path
+    _ = api.Artifact.get_content
+    _ = api.Alias.s3path_version
+    _ = api.Alias.get_version_content
+    _ = api.Alias.s3path_additional_version
+    _ = api.Alias.get_additional_version_content
 
 if __name__ == "__main__":
     from versioned.tests import run_cov_test
