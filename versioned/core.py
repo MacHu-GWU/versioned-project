@@ -108,10 +108,18 @@ class Alias:
 
 @dataclasses.dataclass
 class Repository:
+    """
+    :param aws_region: the aws region of where the artifact store is.
+    :param s3_bucket: the s3 bucket name of the artifact store.
+    :param s3_prefix: the s3 prefix (folder path) of the artifact store.
+    :param dynamodb_table_name: the dynamodb table name of the artifact metadata store.
+    :param suffix: the file extension suffix of the artifact binary.
+    """
     aws_region: str = dataclasses.field()
     s3_bucket: str = dataclasses.field()
     s3_prefix: str = dataclasses.field(default=constants.S3_PREFIX)
     dynamodb_table_name: str = dataclasses.field(default=constants.DYNAMODB_TABLE_NAME)
+    suffix: str = dataclasses.field(default="")
 
     @property
     def s3dir_artifact_store(self) -> S3Path:
@@ -124,7 +132,7 @@ class Repository:
         return S3Path(self.s3_bucket).joinpath(
             self.s3_prefix,
             name,
-            dynamodb.encode_version(version),
+            f"{dynamodb.encode_version(version)}{self.suffix}",
         )
 
     def bootstrap(

@@ -31,6 +31,7 @@ class Test(BaseMockTest):
         cls.repo = Repository(
             aws_region=cls.bsm.aws_region,
             s3_bucket=f"{cls.bsm.aws_account_id}-{cls.bsm.aws_region}-artifacts",
+            suffix=".txt",
         )
         cls.repo.bootstrap(cls.bsm)
 
@@ -69,7 +70,7 @@ class Test(BaseMockTest):
         def _assert_artifact(artifact):
             assert artifact.name == name
             assert artifact.version == constants.LATEST_VERSION
-            assert artifact.s3uri.endswith(constants.LATEST_VERSION)
+            assert artifact.s3uri.endswith(constants.LATEST_VERSION + ".txt")
             assert artifact.get_content(bsm=self.bsm) == b"v1"
 
         _assert_artifact(artifact)
@@ -86,8 +87,10 @@ class Test(BaseMockTest):
         artifact = self.repo.publish_artifact_version(bsm=self.bsm, name=name)
         # rprint(artifact)
         assert artifact.version == "1"
-        assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL))
-        assert artifact.s3path.basename == str("1").zfill(constants.VERSION_ZFILL)
+        assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL) + ".txt")
+        assert (
+            artifact.s3path.basename == str("1").zfill(constants.VERSION_ZFILL) + ".txt"
+        )
         assert artifact.s3path.metadata["foo"] == "bar"
         assert artifact.get_content(bsm=self.bsm) == b"v1"
 
@@ -101,8 +104,10 @@ class Test(BaseMockTest):
         # rprint(artifact)
         assert artifact.version == "2"
         s3path = S3Path(artifact.s3uri)
-        assert artifact.s3uri.endswith("2".zfill(constants.VERSION_ZFILL))
-        assert artifact.s3path.basename == str("2").zfill(constants.VERSION_ZFILL)
+        assert artifact.s3uri.endswith("2".zfill(constants.VERSION_ZFILL) + ".txt")
+        assert (
+            artifact.s3path.basename == str("2").zfill(constants.VERSION_ZFILL) + ".txt"
+        )
         assert artifact.get_content(bsm=self.bsm) == b"v2"
 
         artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
@@ -118,7 +123,9 @@ class Test(BaseMockTest):
 
         # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
-            self.repo.put_alias(bsm=self.bsm, name=name, alias=alias, secondary_version=999)
+            self.repo.put_alias(
+                bsm=self.bsm, name=name, alias=alias, secondary_version=999
+            )
 
         # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
@@ -185,7 +192,7 @@ class Test(BaseMockTest):
             assert ali.version == constants.LATEST_VERSION
             assert ali.secondary_version is None
             assert ali.secondary_version_weight is None
-            assert ali.version_s3uri.endswith(constants.LATEST_VERSION)
+            assert ali.version_s3uri.endswith(constants.LATEST_VERSION + ".txt")
             assert ali.secondary_version_s3uri is None
             assert ali.get_version_content(bsm=self.bsm) == b"v2"
 
@@ -216,8 +223,8 @@ class Test(BaseMockTest):
             assert ali.version == "1"
             assert ali.secondary_version == "2"
             assert ali.secondary_version_weight == 20
-            assert ali.version_s3uri.endswith(encode_version(1))
-            assert ali.secondary_version_s3uri.endswith(encode_version(2))
+            assert ali.version_s3uri.endswith(encode_version(1) + ".txt")
+            assert ali.secondary_version_s3uri.endswith(encode_version(2) + ".txt")
             assert ali.get_version_content(bsm=self.bsm) == b"v1"
             assert ali.get_secondary_version_content(bsm=self.bsm) == b"v2"
 
