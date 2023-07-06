@@ -7,7 +7,6 @@ def test():
     _ = api
     _ = api.exc
     _ = api.DYNAMODB_TABLE_NAME
-    _ = api.BUCKET_NAME
     _ = api.S3_PREFIX
     _ = api.LATEST_VERSION
     _ = api.VERSION_ZFILL

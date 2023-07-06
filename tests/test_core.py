@@ -7,7 +7,6 @@ from s3pathlib import S3Path, context
 
 from versioned import exc
 from versioned import constants
-from versioned.bootstrap import bootstrap
 from versioned.dynamodb import encode_version
 from versioned.tests.mock_aws import BaseMockTest
 from versioned.core import Repository
@@ -29,7 +28,10 @@ class Test(BaseMockTest):
     @classmethod
     def setup_class_post_hook(cls):
         context.attach_boto_session(cls.bsm.boto_ses)
-        cls.repo = Repository()
+        cls.repo = Repository(
+            aws_region=cls.bsm.aws_region,
+            s3_bucket=f"{cls.bsm.aws_account_id}-{cls.bsm.aws_region}-artifacts",
+        )
         cls.repo.bootstrap(cls.bsm)
 
     def _test(self):

@@ -14,6 +14,7 @@ from . import dynamodb
 
 def bootstrap(
     bsm: BotoSesManager,
+    aws_region: str,
     bucket_name: str,
     dynamodb_table_name: str,
     dynamodb_write_capacity_units: T.Optional[int] = None,
@@ -34,9 +35,6 @@ def bootstrap(
         2,
     ]:  # pragma: no cover
         raise ValueError
-
-    aws_account_id = bsm.sts_client.get_caller_identity()["Account"]
-    aws_region = bsm.aws_region
 
     # create s3 bucket
     try:
