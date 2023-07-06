@@ -61,8 +61,16 @@ class Test(BaseMockTest):
         assert len(artifact_list) == 0
 
         # put artifact
-        artifact = put_artifact(bsm=self.bsm, name=name, content=b"v1")
+        artifact = put_artifact(
+            bsm=self.bsm,
+            name=name,
+            content=b"v1",
+            content_type="text/plain",
+            metadata={"foo": "bar"},
+        )
         # rprint(artifact)
+        # put artifact with the same content, S3 and Dynamodb should not changed
+        artifact = put_artifact(bsm=self.bsm, name=name, content=b"v1")
 
         def _assert_artifact(artifact):
             assert artifact.name == name
@@ -86,6 +94,7 @@ class Test(BaseMockTest):
         assert artifact.version == "1"
         assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL))
         assert artifact.s3path.basename == str("1").zfill(constants.VERSION_ZFILL)
+        assert artifact.s3path.metadata["foo"] == "bar"
         assert artifact.get_content(bsm=self.bsm) == b"v1"
 
         # put artifact again

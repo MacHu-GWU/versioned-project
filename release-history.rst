@@ -15,22 +15,30 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
+0.2.1 (2023-07-05)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Features and Improvements**
+
+- add ``content_type``, ``metadata``, ``tags`` arguments to ``versioned.put_artifact``.
+- ``versioned.put_artifact`` now will skip uploading to s3 if ``content`` is not changed.
+
+
 0.1.2 (2023-07-01)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Miscellaneous**
 
-- rename ``versioned.api.get_artifact`` to ``versioned.api.get_artifact_version``
-- rename ``versioned.api.list_artifacts`` to ``versioned.api.list_artifact_versions``
-- rename ``versioned.api.delete_artifact`` to ``versioned.api.delete_artifact_version``
-- rename ``versioned.api.purge`` to ``versioned.api.purge_artifact``
-- rename ``additional_version`` to ``secondary_version``
+- rename ``versioned.api.get_artifact`` to ``versioned.api.get_artifact_version``.
+- rename ``versioned.api.list_artifacts`` to ``versioned.api.list_artifact_versions``.
+- rename ``versioned.api.delete_artifact`` to ``versioned.api.delete_artifact_version``.
+- rename ``versioned.api.purge`` to ``versioned.api.purge_artifact``.
+- rename ``additional_version`` to ``secondary_version``.
 
 
 0.1.1 (2023-07-01)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**
 
-- First release
+- First release.
 - Add the following public api:
     - ``versioned.api.exc``
     - ``versioned.api.DYNAMODB_TABLE_NAME``

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from boto_session_manager import BotoSesManager
 from s3pathlib import S3Path
+from func_args import NOTHING
 
 from . import constants
 from . import dynamodb
@@ -168,6 +169,9 @@ def put_artifact(
     bsm: BotoSesManager,
     name: str,
     content: bytes,
+    content_type: str = NOTHING,
+    metadata: T.Dict[str, str] = NOTHING,
+    tags: T.Dict[str, str] = NOTHING,
 ) -> Artifact:
     """
     Create / Update artifact to the latest.
@@ -175,21 +179,34 @@ def put_artifact(
     :param bsm: ``boto_session_manager.BotoSesManager`` object.
     :param name: artifact name.
     :param content: binary artifact content.
+    :param metadata: optional metadata of the s3 object.
+    :param tags: optional tags of the s3 object.
     """
     Artifact = _get_artifact_class(bsm)
     artifact = Artifact.new(name=name)
     artifact_sha256 = hashes.of_bytes(content)
     artifact.sha256 = artifact_sha256
-    artifact.save()
     s3path = _get_s3path(bsm=bsm, name=name, version=constants.LATEST_VERSION)
+
+    # do nothing if the content is not changed
+    if s3path.exists(bsm=bsm):
+        if s3path.metadata["artifact_sha256"] == artifact_sha256:
+            return _get_artifact_dict(bsm=bsm, artifact=artifact)
+
+    final_metadata = dict(
+        artifact_name=name,
+        artifact_sha256=artifact_sha256,
+    )
+    if metadata is not NOTHING:
+        final_metadata.update(metadata)
     s3path.write_bytes(
         content,
-        metadata=dict(
-            artifact_name=name,
-            artifact_sha256=artifact_sha256,
-        ),
+        metadata=final_metadata,
+        content_type=content_type,
+        tags=tags,
         bsm=bsm,
     )
+    artifact.save()
     return _get_artifact_dict(bsm=bsm, artifact=artifact)
 
 
