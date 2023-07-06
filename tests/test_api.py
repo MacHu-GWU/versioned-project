@@ -11,7 +11,6 @@ def test():
     _ = api.S3_PREFIX
     _ = api.LATEST_VERSION
     _ = api.VERSION_ZFILL
-    _ = api.bootstrap
     _ = api.Artifact
     _ = api.Alias
     _ = api.Repository

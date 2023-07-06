@@ -15,6 +15,24 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
+0.3.1 (2023-07-06)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Features and Improvements**
+
+- Created a new public API class ``versioned.api.Repository``, allow developer to customize the S3 bucket and DynamoDB table name backend. So old API are renamed to:
+    - ``versioned.api.Repository.bootstrap``
+    - ``versioned.api.Repository.put_artifact``
+    - ``versioned.api.Repository.get_artifact_version``
+    - ``versioned.api.Repository.list_artifact_versions``
+    - ``versioned.api.Repository.publish_artifact_version``
+    - ``versioned.api.Repository.delete_artifact_version``
+    - ``versioned.api.Repository.put_alias``
+    - ``versioned.api.Repository.get_alias``
+    - ``versioned.api.Repository.list_aliases``
+    - ``versioned.api.Repository.delete_alias``
+    - ``versioned.api.Repository.purge_artifact``
+
+
 0.2.1 (2023-07-05)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**
