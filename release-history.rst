@@ -21,6 +21,7 @@ x.y.z (Backlog)
 
 - add ``versioned.api.Repository.connect_boto_session`` to public API. it can explicitly connect the S3 and DynamoDB API to the given boto session.
 - removed useless argument ``bsm`` in many APIs.
+- add ``versioned.api.Repository.purge_all`` to public API.
 
 
 0.3.3 (2023-07-06)
