@@ -39,7 +39,7 @@ class Test(BaseMockTest):
         name = "deploy"
         alias = "LIVE"
 
-        self.repo.purge_artifact(name=name)
+        self.repo.purge_all()
 
         # ======================================================================
         # Artifact

@@ -24,6 +24,7 @@ def test():
     _ = api.Repository.list_aliases
     _ = api.Repository.delete_alias
     _ = api.Repository.purge_artifact
+    _ = api.Repository.purge_all
     _ = api.Artifact.s3path
     _ = api.Artifact.get_content
     _ = api.Alias.s3path_version

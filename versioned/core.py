@@ -130,8 +130,7 @@ class Repository:
         return S3Path(self.s3_bucket).joinpath(self.s3_prefix).to_dir()
 
     def get_artifact_s3path(self, name: str, version: str) -> S3Path:
-        return S3Path(self.s3_bucket).joinpath(
-            self.s3_prefix,
+        return self.s3dir_artifact_store.joinpath(
             name,
             f"{dynamodb.encode_version(version)}{self.suffix}",
         )
@@ -482,7 +481,6 @@ class Repository:
         This operation is irreversible. It will remove all related S3 artifacts
         and DynamoDB items.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
         s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
@@ -497,3 +495,13 @@ class Repository:
         with Alias.batch_write() as batch:
             for alias in Alias.query(hash_key=dynamodb.encode_alias_key(name)):
                 batch.delete(alias)
+
+    def purge_all(self):
+        """
+        Completely delete all artifacts and aliases in this Repository
+        This operation is irreversible. It will remove all related S3 artifacts
+        and DynamoDB items.
+        """
+        for s3dir in self.s3dir_artifact_store.iterdir():
+            artifact_name = s3dir.basename
+            self.purge_artifact(name=artifact_name)

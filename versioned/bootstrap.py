@@ -40,7 +40,7 @@ def bootstrap(
     # create s3 bucket
     try:
         bsm.s3_client.head_bucket(Bucket=bucket_name)
-    except Exception as e:
+    except Exception as e: # pragma: no cover
         if "Not Found" in str(e):
             bsm.s3_client.create_bucket(Bucket=bucket_name)
         else:
