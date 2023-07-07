@@ -502,6 +502,8 @@ class Repository:
         This operation is irreversible. It will remove all related S3 artifacts
         and DynamoDB items.
         """
-        for s3dir in self.s3dir_artifact_store.iterdir():
-            artifact_name = s3dir.basename
-            self.purge_artifact(name=artifact_name)
+        self.s3dir_artifact_store.delete()
+        Artifact = self._artifact_class
+        with Artifact.batch_write() as batch:
+            for item in Artifact.scan():
+                batch.delete(item)
