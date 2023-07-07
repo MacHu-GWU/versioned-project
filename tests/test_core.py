@@ -39,7 +39,7 @@ class Test(BaseMockTest):
         name = "deploy"
         alias = "LIVE"
 
-        self.repo.purge_artifact(bsm=self.bsm, name=name)
+        self.repo.purge_artifact(name=name)
 
         # ======================================================================
         # Artifact
@@ -47,17 +47,16 @@ class Test(BaseMockTest):
         # --- test ArtifactNotFoundError ---
         # at this moment, no artifact exists
         with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.publish_artifact_version(bsm=self.bsm, name=name)
+            self.repo.publish_artifact_version(name=name)
 
         with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.get_artifact_version(bsm=self.bsm, name=name)
+            self.repo.get_artifact_version(name=name)
 
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+        artifact_list = self.repo.list_artifact_versions(name=name)
         assert len(artifact_list) == 0
 
         # put artifact
         artifact = self.repo.put_artifact(
-            bsm=self.bsm,
             name=name,
             content=b"v1",
             content_type="text/plain",
@@ -65,7 +64,7 @@ class Test(BaseMockTest):
         )
         # rprint(artifact)
         # put artifact with the same content, S3 and Dynamodb should not changed
-        artifact = self.repo.put_artifact(bsm=self.bsm, name=name, content=b"v1")
+        artifact = self.repo.put_artifact(name=name, content=b"v1")
 
         def _assert_artifact(artifact):
             assert artifact.name == name
@@ -75,16 +74,16 @@ class Test(BaseMockTest):
 
         _assert_artifact(artifact)
 
-        artifact = self.repo.get_artifact_version(bsm=self.bsm, name=name)
+        artifact = self.repo.get_artifact_version(name=name)
         # rprint(artifact)
         _assert_artifact(artifact)
 
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+        artifact_list = self.repo.list_artifact_versions(name=name)
         # rprint(artifact_list)
         assert len(artifact_list) == 1
         _assert_artifact(artifact_list[0])
 
-        artifact = self.repo.publish_artifact_version(bsm=self.bsm, name=name)
+        artifact = self.repo.publish_artifact_version(name=name)
         # rprint(artifact)
         assert artifact.version == "1"
         assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL) + ".txt")
@@ -95,12 +94,12 @@ class Test(BaseMockTest):
         assert artifact.get_content(bsm=self.bsm) == b"v1"
 
         # put artifact again
-        artifact = self.repo.put_artifact(bsm=self.bsm, name=name, content=b"v2")
+        artifact = self.repo.put_artifact(name=name, content=b"v2")
         # rprint(artifact)
         assert artifact.version == constants.LATEST_VERSION
         assert S3Path(artifact.s3uri).read_text(bsm=self.bsm) == "v2"
 
-        artifact = self.repo.publish_artifact_version(bsm=self.bsm, name=name)
+        artifact = self.repo.publish_artifact_version(name=name)
         # rprint(artifact)
         assert artifact.version == "2"
         s3path = S3Path(artifact.s3uri)
@@ -110,7 +109,7 @@ class Test(BaseMockTest):
         )
         assert artifact.get_content(bsm=self.bsm) == b"v2"
 
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+        artifact_list = self.repo.list_artifact_versions(name=name)
         assert len(artifact_list) == 3
 
         # ======================================================================
@@ -119,18 +118,17 @@ class Test(BaseMockTest):
         # --- test raises error ---
         # try to put alias on non-exist artifact
         with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.put_alias(bsm=self.bsm, name=name, alias=alias, version=999)
+            self.repo.put_alias(name=name, alias=alias, version=999)
 
         # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
             self.repo.put_alias(
-                bsm=self.bsm, name=name, alias=alias, secondary_version=999
+                name=name, alias=alias, secondary_version=999
             )
 
         # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
             self.repo.put_alias(
-                bsm=self.bsm,
                 name=name,
                 alias=alias,
                 secondary_version=999,
@@ -140,7 +138,6 @@ class Test(BaseMockTest):
         # secondary_version_weight value range is wrong
         with pytest.raises(ValueError):
             self.repo.put_alias(
-                bsm=self.bsm,
                 name=name,
                 alias=alias,
                 secondary_version=999,
@@ -150,7 +147,6 @@ class Test(BaseMockTest):
         # secondary_version_weight value range is wrong
         with pytest.raises(ValueError):
             self.repo.put_alias(
-                bsm=self.bsm,
                 name=name,
                 alias=alias,
                 secondary_version=999,
@@ -160,7 +156,6 @@ class Test(BaseMockTest):
         # try to put alias on non-exist artifact
         with pytest.raises(exc.ArtifactNotFoundError):
             self.repo.put_alias(
-                bsm=self.bsm,
                 name=name,
                 alias=alias,
                 secondary_version=999,
@@ -170,7 +165,6 @@ class Test(BaseMockTest):
         # version and secondary_version is the same
         with pytest.raises(ValueError):
             self.repo.put_alias(
-                bsm=self.bsm,
                 name=name,
                 alias=alias,
                 version=1,
@@ -180,10 +174,10 @@ class Test(BaseMockTest):
 
         # alias not exists
         with pytest.raises(exc.AliasNotFoundError):
-            self.repo.get_alias(bsm=self.bsm, name=name, alias="Invalid")
+            self.repo.get_alias(name=name, alias="Invalid")
 
         # put alias
-        ali = self.repo.put_alias(bsm=self.bsm, name=name, alias=alias)
+        ali = self.repo.put_alias(name=name, alias=alias)
         # rprint(ali)
 
         def _assert_alias(ali):
@@ -198,17 +192,16 @@ class Test(BaseMockTest):
 
         _assert_alias(ali)
 
-        ali = self.repo.get_alias(bsm=self.bsm, name=name, alias=alias)
+        ali = self.repo.get_alias(name=name, alias=alias)
         # rprint(ali)
         _assert_alias(ali)
 
-        ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
+        ali_list = self.repo.list_aliases(name=name)
         assert len(ali_list) == 1
         _assert_alias(ali_list[0])
 
         # put alias again
         ali = self.repo.put_alias(
-            bsm=self.bsm,
             name=name,
             alias=alias,
             version=1,
@@ -230,31 +223,31 @@ class Test(BaseMockTest):
 
         _assert_alias(ali)
 
-        ali = self.repo.get_alias(bsm=self.bsm, name=name, alias=alias)
+        ali = self.repo.get_alias(name=name, alias=alias)
         # rprint(ali)
         _assert_alias(ali)
 
-        ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
+        ali_list = self.repo.list_aliases(name=name)
         assert len(ali_list) == 1
         _assert_alias(ali_list[0])
 
         # --- test delete methods
-        self.repo.delete_alias(bsm=self.bsm, name=name, alias=alias)
+        self.repo.delete_alias(name=name, alias=alias)
         with pytest.raises(exc.AliasNotFoundError):
-            self.repo.get_alias(bsm=self.bsm, name=name, alias=alias)
-        ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
+            self.repo.get_alias(name=name, alias=alias)
+        ali_list = self.repo.list_aliases(name=name)
         assert len(ali_list) == 0
 
-        self.repo.delete_artifact_version(bsm=self.bsm, name=name)
+        self.repo.delete_artifact_version(name=name)
         with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.get_artifact_version(bsm=self.bsm, name=name)
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+            self.repo.get_artifact_version(name=name)
+        artifact_list = self.repo.list_artifact_versions(name=name)
         assert len(artifact_list) == 2
 
-        self.repo.delete_artifact_version(bsm=self.bsm, name=name, version=1)
+        self.repo.delete_artifact_version(name=name, version=1)
         with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.get_artifact_version(bsm=self.bsm, name=name, version=1)
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+            self.repo.get_artifact_version(name=name, version=1)
+        artifact_list = self.repo.list_artifact_versions(name=name)
         assert len(artifact_list) == 1
 
         # it is a soft delete, so S3 artifact is not deleted
@@ -262,20 +255,21 @@ class Test(BaseMockTest):
 
         # --- purge
         with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.put_alias(bsm=self.bsm, name=name, alias="DEV", version=1)
+            self.repo.put_alias(name=name, alias="DEV", version=1)
 
-        self.repo.put_alias(bsm=self.bsm, name=name, alias="DEV", version=2)
-        ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
+        self.repo.put_alias(name=name, alias="DEV", version=2)
+        ali_list = self.repo.list_aliases(name=name)
         assert len(ali_list) == 1
 
-        self.repo.purge_artifact(bsm=self.bsm, name=name)
+        self.repo.purge_artifact(name=name)
         assert s3path.parent.count_objects(bsm=self.bsm) == 0
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+        artifact_list = self.repo.list_artifact_versions(name=name)
         assert len(artifact_list) == 0
-        ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
+        ali_list = self.repo.list_aliases(name=name)
         assert len(ali_list) == 0
 
     def test(self):
+        self.repo.connect_boto_session(self.bsm)
         self._test()
 
 

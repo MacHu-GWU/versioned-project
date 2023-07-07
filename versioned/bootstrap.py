@@ -6,6 +6,7 @@ Todo: docstring
 
 import typing as T
 from boto_session_manager import BotoSesManager
+from s3pathlib import context
 
 from pynamodb.models import PAY_PER_REQUEST_BILLING_MODE
 from pynamodb.connection import Connection
@@ -65,6 +66,7 @@ def bootstrap(
                 write_capacity_units = dynamodb_write_capacity_units
                 read_capacity_units = dynamodb_read_capacity_units
 
+    context.attach_boto_session(bsm.boto_ses)
     with bsm.awscli():
         Connection()
         Base.create_table(wait=True)

@@ -6,7 +6,7 @@ import dataclasses
 from datetime import datetime
 
 from boto_session_manager import BotoSesManager
-from s3pathlib import S3Path
+from s3pathlib import S3Path, context
 from func_args import NOTHING
 from pynamodb.connection import Connection
 
@@ -115,6 +115,7 @@ class Repository:
     :param dynamodb_table_name: the dynamodb table name of the artifact metadata store.
     :param suffix: the file extension suffix of the artifact binary.
     """
+
     aws_region: str = dataclasses.field()
     s3_bucket: str = dataclasses.field()
     s3_prefix: str = dataclasses.field(default=constants.S3_PREFIX)
@@ -197,12 +198,21 @@ class Repository:
             ).uri
         return Alias(**dct)
 
+    def connect_boto_session(self, bsm: BotoSesManager):
+        """
+        Explicitly connect the underlying DynamoDB to the specified AWS Credential.
+
+        :param bsm: ``boto_session_manager.BotoSesManager`` object.
+        """
+        context.attach_boto_session(bsm.boto_ses)
+        with bsm.awscli():
+            Connection()
+
     # ------------------------------------------------------------------------------
     # Artifact
     # ------------------------------------------------------------------------------
     def put_artifact(
         self,
-        bsm: BotoSesManager,
         name: str,
         content: bytes,
         content_type: str = NOTHING,
@@ -212,7 +222,6 @@ class Repository:
         """
         Create / Update artifact to the latest.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         :param content: binary artifact content.
         :param metadata: optional metadata of the s3 object.
@@ -224,7 +233,7 @@ class Repository:
         s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
 
         # do nothing if the content is not changed
-        if s3path.exists(bsm=bsm):
+        if s3path.exists():
             if s3path.metadata["artifact_sha256"] == artifact_sha256:
                 return self._get_artifact_object(artifact=artifact)
 
@@ -239,7 +248,6 @@ class Repository:
             metadata=final_metadata,
             content_type=content_type,
             tags=tags,
-            bsm=bsm,
         )
         artifact.save()
         return self._get_artifact_object(artifact=artifact)
@@ -265,14 +273,12 @@ class Repository:
 
     def get_artifact_version(
         self,
-        bsm: BotoSesManager,
         name: str,
         version: T.Optional[T.Union[int, str]] = None,
     ) -> Artifact:
         """
         Return the information about the artifact or artifact version.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         :param version: artifact version. If ``None``, return the latest version.
         """
@@ -287,14 +293,12 @@ class Repository:
 
     def list_artifact_versions(
         self,
-        bsm: BotoSesManager,
         name: str,
     ) -> T.List[Artifact]:
         """
         Return a list of artifact versions. The latest version is always the first item.
         And the newer version comes first.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
         Artifact = self._artifact_class
@@ -309,14 +313,12 @@ class Repository:
 
     def publish_artifact_version(
         self,
-        bsm: BotoSesManager,
         name: str,
     ) -> Artifact:
         """
         Creates a version from the latest artifact. Use versions to create an
         immutable snapshot of your latest artifact.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
         Artifact = self._artifact_class
@@ -333,15 +335,15 @@ class Repository:
         artifact.sha256 = artifacts[0].sha256
         artifact.save()
         s3path_old = self.get_artifact_s3path(
-            name=name, version=constants.LATEST_VERSION,
+            name=name,
+            version=constants.LATEST_VERSION,
         )
         s3path_new = self.get_artifact_s3path(name=name, version=new_version)
-        s3path_old.copy_to(s3path_new, bsm=bsm)
+        s3path_old.copy_to(s3path_new)
         return self._get_artifact_object(artifact=artifact)
 
     def delete_artifact_version(
         self,
-        bsm: BotoSesManager,
         name: str,
         version: T.Optional[T.Union[int, str]] = None,
     ):
@@ -351,7 +353,6 @@ class Repository:
         neither the S3 artifact nor the DynamoDB item is deleted. It is just
         become "invisible" to the :func:`get_artifact` and :func:`list_artifacts``.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         :param version: artifact version. If ``None``, delete the latest version.
         """
@@ -370,7 +371,6 @@ class Repository:
     # ------------------------------------------------------------------------------
     def put_alias(
         self,
-        bsm: BotoSesManager,
         name: str,
         alias: str,
         version: T.Optional[T.Union[int, str]] = None,
@@ -385,7 +385,6 @@ class Repository:
         Use the ``secondary_version`` and ``secondary_version_weight`` to specify
         a second version and the percentage of invocation requests that it receives.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         :param alias: alias name. alias name cannot have hyphen
         :param version: artifact version. If ``None``, the latest version is used.
@@ -428,14 +427,12 @@ class Repository:
 
     def get_alias(
         self,
-        bsm: BotoSesManager,
         name: str,
         alias: str,
     ) -> Alias:
         """
         Return details about the alias.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         :param alias: alias name. alias name cannot have hyphen
         """
@@ -452,13 +449,11 @@ class Repository:
 
     def list_aliases(
         self,
-        bsm: BotoSesManager,
         name: str,
     ) -> T.List[Alias]:
         """
         Returns a list of aliases for an artifact.
 
-        :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
         Alias = self._alias_class
@@ -469,7 +464,6 @@ class Repository:
 
     def delete_alias(
         self,
-        bsm: BotoSesManager,
         name: str,
         alias: str,
     ):
@@ -481,7 +475,6 @@ class Repository:
 
     def purge_artifact(
         self,
-        bsm: BotoSesManager,
         name: str,
     ):
         """
@@ -494,7 +487,7 @@ class Repository:
         """
         s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
         s3dir = s3path.parent
-        s3dir.delete(bsm=bsm)
+        s3dir.delete()
 
         Artifact = self._artifact_class
         Alias = self._alias_class
