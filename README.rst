@@ -56,6 +56,10 @@ Tutorial:
 
 - `Quick Start <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/Quick-Start.ipynb>`_
 
+Learn why Blue / Green, Canary deployment and Rollback made easy with versioning and alias management.
+
+.. image:: https://github.com/MacHu-GWU/versioned-project/assets/6800411/57f7970e-3821-45a0-9deb-64890e04c129
+
 
 .. _install:
 
