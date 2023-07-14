@@ -13,17 +13,55 @@ from pynamodb.attributes import NumberAttribute
 from pynamodb.attributes import BooleanAttribute
 from pynamodb.attributes import UTCDateTimeAttribute
 
-from .constants import LATEST_VERSION, VERSION_ZFILL
+from .constants import (
+    LATEST_VERSION,
+    VERSION_ZFILL,
+)
 
 
 def get_utc_now() -> datetime:
     return datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
-def encode_version(version: T.Union[int, str]) -> str:
-    return str(version).zfill(VERSION_ZFILL)
+def encode_version(version: T.Optional[T.Union[int, str]]) -> str:
+    """
+    Encode human readable "version" into the data class field "version".
 
-def encode_alias_key(name: str) -> str:
+    Example::
+
+        None    -> LATEST
+        LATEST  -> LATEST
+        1       -> 1
+        000001  -> 1
+    """
+    if version is None:
+        return LATEST_VERSION
+    else:
+        return str(version).lstrip("0")
+
+
+def encode_version_sk(version: T.Optional[T.Union[int, str]]) -> str:
+    """
+    Get the Dynamodb sort key of a version.
+
+    Example::
+
+        None    -> LATEST
+        LATEST  -> LATEST
+        999999  -> 999999
+        ...
+        2       -> 000002
+        1       -> 000001
+    """
+    return encode_version(version).zfill(VERSION_ZFILL)
+
+
+def encode_alias_pk(name: str) -> str:
+    """
+    Get the Dynamodb partition key of an alias.
+
+    :param name: artifact name
+    """
     return f"__{name}-alias"
 
 
@@ -39,9 +77,8 @@ class Artifact(Base):
     """
     Todo: docstring
     """
-    update_at: T.Union[datetime, UTCDateTimeAttribute] = UTCDateTimeAttribute(
-        default=get_utc_now,
-    )
+
+    update_at: T.Union[datetime, UTCDateTimeAttribute] = UTCDateTimeAttribute()
     is_deleted: T.Union[bool, BooleanAttribute] = BooleanAttribute(
         default=False,
     )
@@ -56,7 +93,7 @@ class Artifact(Base):
         if version is None:
             return cls(pk=name)
         else:
-            return cls(pk=name, sk=encode_version(version))
+            return cls(pk=name, sk=encode_version_sk(version))
 
     @property
     def name(self) -> str:
@@ -79,6 +116,9 @@ class Alias(Base):
     """
     Todo: docstring
     """
+    update_at: T.Union[datetime, UTCDateTimeAttribute] = UTCDateTimeAttribute(
+        default=get_utc_now,
+    )
     version: T.Union[str, UnicodeAttribute] = UnicodeAttribute()
     secondary_version: T.Optional[T.Union[str, UnicodeAttribute]] = UnicodeAttribute(
         null=True,
@@ -100,14 +140,13 @@ class Alias(Base):
     ):
         if version is None:
             version = LATEST_VERSION
-        version = encode_version(version)
+        version = encode_version_sk(version)
         if secondary_version is not None:
-            secondary_version = encode_version(secondary_version)
+            secondary_version = encode_version_sk(secondary_version)
             if version == secondary_version:
                 raise ValueError
-
         return cls(
-            pk=encode_alias_key(name),
+            pk=encode_alias_pk(name),
             sk=alias,
             version=version,
             secondary_version=secondary_version,
@@ -130,6 +169,7 @@ class Alias(Base):
         return {
             "name": self.name,
             "alias": self.alias,
+            "update_at": self.update_at,
             "version": self.version.lstrip("0"),
             "secondary_version": secondary_version,
             "secondary_version_weight": self.secondary_version_weight,

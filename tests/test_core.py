@@ -7,7 +7,7 @@ from s3pathlib import S3Path, context
 
 from versioned import exc
 from versioned import constants
-from versioned.dynamodb import encode_version
+from versioned.dynamodb import encode_version_sk
 from versioned.tests.mock_aws import BaseMockTest
 from versioned.core import Repository
 
@@ -23,6 +23,8 @@ class Test(BaseMockTest):
         moto.mock_dynamodb,
     ]
 
+    _mock_list = []
+
     repo: Repository = None
 
     @classmethod
@@ -35,16 +37,12 @@ class Test(BaseMockTest):
         )
         cls.repo.bootstrap(cls.bsm)
 
-    def _test(self):
+    def _test_error(self):
         name = "deploy"
-        alias = "LIVE"
 
         self.repo.purge_all()
 
-        # ======================================================================
-        # Artifact
-        # ======================================================================
-        # --- test ArtifactNotFoundError ---
+        # --- test Artifact error ---
         # at this moment, no artifact exists
         with pytest.raises(exc.ArtifactNotFoundError):
             self.repo.publish_artifact_version(name=name)
@@ -55,76 +53,20 @@ class Test(BaseMockTest):
         artifact_list = self.repo.list_artifact_versions(name=name)
         assert len(artifact_list) == 0
 
-        # put artifact
-        artifact = self.repo.put_artifact(
-            name=name,
-            content=b"v1",
-            content_type="text/plain",
-            metadata={"foo": "bar"},
-        )
-        # rprint(artifact)
-        # put artifact with the same content, S3 and Dynamodb should not changed
-        artifact = self.repo.put_artifact(name=name, content=b"v1")
+        # delete an non existing artifact version should always success for idempotency
+        self.repo.delete_artifact_version(name=name)
+        self.repo.delete_artifact_version(name=name, version=1)
 
-        def _assert_artifact(artifact):
-            assert artifact.name == name
-            assert artifact.version == constants.LATEST_VERSION
-            assert artifact.s3uri.endswith(constants.LATEST_VERSION + ".txt")
-            assert artifact.get_content(bsm=self.bsm) == b"v1"
+        # --- test Alias error ---
+        alias = "LIVE"
 
-        _assert_artifact(artifact)
-
-        artifact = self.repo.get_artifact_version(name=name)
-        # rprint(artifact)
-        _assert_artifact(artifact)
-
-        artifact_list = self.repo.list_artifact_versions(name=name)
-        # rprint(artifact_list)
-        assert len(artifact_list) == 1
-        _assert_artifact(artifact_list[0])
-
-        artifact = self.repo.publish_artifact_version(name=name)
-        # rprint(artifact)
-        assert artifact.version == "1"
-        assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL) + ".txt")
-        assert (
-            artifact.s3path.basename == str("1").zfill(constants.VERSION_ZFILL) + ".txt"
-        )
-        assert artifact.s3path.metadata["foo"] == "bar"
-        assert artifact.get_content(bsm=self.bsm) == b"v1"
-
-        # put artifact again
-        artifact = self.repo.put_artifact(name=name, content=b"v2")
-        # rprint(artifact)
-        assert artifact.version == constants.LATEST_VERSION
-        assert S3Path(artifact.s3uri).read_text(bsm=self.bsm) == "v2"
-
-        artifact = self.repo.publish_artifact_version(name=name)
-        # rprint(artifact)
-        assert artifact.version == "2"
-        s3path = S3Path(artifact.s3uri)
-        assert artifact.s3uri.endswith("2".zfill(constants.VERSION_ZFILL) + ".txt")
-        assert (
-            artifact.s3path.basename == str("2").zfill(constants.VERSION_ZFILL) + ".txt"
-        )
-        assert artifact.get_content(bsm=self.bsm) == b"v2"
-
-        artifact_list = self.repo.list_artifact_versions(name=name)
-        assert len(artifact_list) == 3
-
-        # ======================================================================
-        # Artifact
-        # ======================================================================
-        # --- test raises error ---
         # try to put alias on non-exist artifact
         with pytest.raises(exc.ArtifactNotFoundError):
             self.repo.put_alias(name=name, alias=alias, version=999)
 
         # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
-            self.repo.put_alias(
-                name=name, alias=alias, secondary_version=999
-            )
+            self.repo.put_alias(name=name, alias=alias, secondary_version=999)
 
         # secondary_version_weight type is wrong
         with pytest.raises(TypeError):
@@ -176,13 +118,91 @@ class Test(BaseMockTest):
         with pytest.raises(exc.AliasNotFoundError):
             self.repo.get_alias(name=name, alias="Invalid")
 
+        alias_list = self.repo.list_aliases(name=name)
+        assert len(alias_list) == 0
+
+    def _test_artifact_and_alias(self):
+        name = "deploy"
+        alias = "LIVE"
+
+        self.repo.purge_all()
+
+        # ======================================================================
+        # Artifact
+        # ======================================================================
+        # put artifact
+        artifact = self.repo.put_artifact(
+            name=name,
+            content=b"v1",
+            content_type="text/plain",
+            metadata={"foo": "bar"},
+        )
+        # rprint(artifact)
+        expected_update_at = artifact.update_at
+
+        # put artifact with the same content, S3 and Dynamodb should not changed
+        artifact = self.repo.put_artifact(name=name, content=b"v1")
+        # rprint(artifact)
+
+        def _assert_artifact(artifact):
+            assert artifact.name == name
+            assert artifact.version == constants.LATEST_VERSION
+            assert artifact.update_at == expected_update_at
+            assert artifact.s3uri.endswith(constants.LATEST_VERSION + ".txt")
+            assert artifact.get_content(bsm=self.bsm) == b"v1"
+
+        _assert_artifact(artifact)
+
+        artifact = self.repo.get_artifact_version(name=name)
+        # rprint(artifact)
+        _assert_artifact(artifact)
+
+        artifact_list = self.repo.list_artifact_versions(name=name)
+        # rprint(artifact_list)
+        assert len(artifact_list) == 1
+        _assert_artifact(artifact_list[0])
+
+        artifact = self.repo.publish_artifact_version(name=name)
+        # rprint(artifact)
+        assert artifact.version == "1"
+        assert artifact.s3uri.endswith("1".zfill(constants.VERSION_ZFILL) + ".txt")
+        assert (
+            artifact.s3path.basename == str("1").zfill(constants.VERSION_ZFILL) + ".txt"
+        )
+        assert artifact.s3path.metadata["foo"] == "bar"
+        assert artifact.get_content(bsm=self.bsm) == b"v1"
+
+        # put artifact again
+        artifact = self.repo.put_artifact(name=name, content=b"v2")
+        # rprint(artifact)
+        assert artifact.version == constants.LATEST_VERSION
+        assert S3Path(artifact.s3uri).read_text(bsm=self.bsm) == "v2"
+
+        artifact = self.repo.publish_artifact_version(name=name)
+        # rprint(artifact)
+        assert artifact.version == "2"
+        s3path = S3Path(artifact.s3uri)
+        assert artifact.s3uri.endswith("2".zfill(constants.VERSION_ZFILL) + ".txt")
+        assert (
+            artifact.s3path.basename == str("2").zfill(constants.VERSION_ZFILL) + ".txt"
+        )
+        assert artifact.get_content(bsm=self.bsm) == b"v2"
+
+        artifact_list = self.repo.list_artifact_versions(name=name)
+        assert len(artifact_list) == 3
+
+        # ======================================================================
+        # Alias
+        # ======================================================================
         # put alias
         ali = self.repo.put_alias(name=name, alias=alias)
         # rprint(ali)
+        expected_update_at = ali.update_at
 
         def _assert_alias(ali):
             assert ali.name == name
             assert ali.alias == alias
+            assert ali.update_at == expected_update_at
             assert ali.version == constants.LATEST_VERSION
             assert ali.secondary_version is None
             assert ali.secondary_version_weight is None
@@ -213,11 +233,12 @@ class Test(BaseMockTest):
         def _assert_alias(ali):
             assert ali.name == name
             assert ali.alias == alias
+            assert ali.update_at > expected_update_at
             assert ali.version == "1"
             assert ali.secondary_version == "2"
             assert ali.secondary_version_weight == 20
-            assert ali.version_s3uri.endswith(encode_version(1) + ".txt")
-            assert ali.secondary_version_s3uri.endswith(encode_version(2) + ".txt")
+            assert ali.version_s3uri.endswith(encode_version_sk(1) + ".txt")
+            assert ali.secondary_version_s3uri.endswith(encode_version_sk(2) + ".txt")
             assert ali.get_version_content(bsm=self.bsm) == b"v1"
             assert ali.get_secondary_version_content(bsm=self.bsm) == b"v2"
 
@@ -270,7 +291,8 @@ class Test(BaseMockTest):
 
     def test(self):
         self.repo.connect_boto_session(self.bsm)
-        self._test()
+        self._test_error()
+        self._test_artifact_and_alias()
 
 
 if __name__ == "__main__":
