@@ -133,7 +133,13 @@ class Repository:
         """
         return S3Path(self.s3_bucket).joinpath(self.s3_prefix).to_dir()
 
-    def _get_artifact_s3path(self, name: str, version: str) -> S3Path:
+    def get_artifact_s3path(self, name: str, version: str) -> S3Path:
+        """
+        Return the s3path of the artifact s3 object.
+
+        :param name: artifact name.
+        :param version: artifact version. If ``None``, return the latest version.
+        """
         return self.s3dir_artifact_store.joinpath(
             name,
             f"{dynamodb.encode_version_sk(version)}{self.suffix}",
@@ -180,7 +186,7 @@ class Repository:
         artifact: dynamodb.Artifact,
     ) -> Artifact:
         dct = artifact.to_dict()
-        dct["s3uri"] = self._get_artifact_s3path(
+        dct["s3uri"] = self.get_artifact_s3path(
             name=artifact.name,
             version=artifact.version,
         ).uri
@@ -191,14 +197,14 @@ class Repository:
         alias: dynamodb.Alias,
     ) -> Alias:
         dct = alias.to_dict()
-        dct["version_s3uri"] = self._get_artifact_s3path(
+        dct["version_s3uri"] = self.get_artifact_s3path(
             name=alias.name,
             version=alias.version,
         ).uri
         if alias.secondary_version is None:
             dct["secondary_version_s3uri"] = None
         else:
-            dct["secondary_version_s3uri"] = self._get_artifact_s3path(
+            dct["secondary_version_s3uri"] = self.get_artifact_s3path(
                 name=alias.name,
                 version=alias.secondary_version,
             ).uri
@@ -236,7 +242,7 @@ class Repository:
         artifact = self._artifact_class.new(name=name)
         artifact_sha256 = hashes.of_bytes(content)
         artifact.sha256 = artifact_sha256
-        s3path = self._get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
+        s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
 
         # do nothing if the content is not changed
         if s3path.exists():
@@ -342,11 +348,11 @@ class Repository:
             new_version = str(int(artifacts[1].version) + 1)
 
         # copy artifact from latest to the new version
-        s3path_old = self._get_artifact_s3path(
+        s3path_old = self.get_artifact_s3path(
             name=name,
             version=constants.LATEST_VERSION,
         )
-        s3path_new = self._get_artifact_s3path(name=name, version=new_version)
+        s3path_new = self.get_artifact_s3path(name=name, version=new_version)
         s3path_old.copy_to(s3path_new)
         s3path_new.head_object()
 
@@ -509,7 +515,7 @@ class Repository:
 
         :param name: artifact name.
         """
-        s3path = self._get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
+        s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
         s3dir = s3path.parent
         s3dir.delete()
 

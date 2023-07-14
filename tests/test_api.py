@@ -14,6 +14,7 @@ def test():
     _ = api.Artifact
     _ = api.Alias
     _ = api.Repository
+    _ = api.Repository.get_artifact_s3path
     _ = api.Repository.put_artifact
     _ = api.Repository.get_artifact_version
     _ = api.Repository.list_artifact_versions
