@@ -60,6 +60,11 @@ Learn why Blue / Green, Canary deployment and Rollback made easy with versioning
 
 .. image:: https://github.com/MacHu-GWU/versioned-project/assets/6800411/57f7970e-3821-45a0-9deb-64890e04c129
 
+Related Project:
+
+- `aws_glue_artifact <https://github.com/MacHu-GWU/aws_glue_artifact-project>`_ enables the versioned deployment for AWS Glue.
+- `airflow_dag_artifact <https://github.com/MacHu-GWU/airflow_dag_artifact-project>`_ enables the versioned deployment for Airflow DAG deployment.
+
 
 .. _install:
 
