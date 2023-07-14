@@ -25,11 +25,18 @@ from .vendor.hashes import hashes
 def encode_version(version: T.Optional[T.Union[int, str]]) -> str:
     """
     Encode human readable "version" into the data class field "version".
+
+    Example::
+
+        None    -> LATEST
+        LATEST  -> LATEST
+        1       -> 1
+        000001  -> 1
     """
     if version is None:
         return LATEST_VERSION
     else:
-        return str(version)
+        return str(version).lstrip("0")
 
 
 def encode_filename(version: T.Optional[T.Union[int, str]]) -> str:
@@ -39,12 +46,12 @@ def encode_filename(version: T.Optional[T.Union[int, str]]) -> str:
 
     Example::
 
-        LATEST -> 000000_LATEST
-        LATEST -> 000000_LATEST
-        999999 -> 000001_999999
+        None    -> 000000_LATEST
+        LATEST  -> 000000_LATEST
+        999999  -> 000001_999999
         ...
-        2      -> 999998_000002
-        1      -> 999999_000001
+        2       -> 999998_000002
+        1       -> 999999_000001
     """
     version = encode_version(version)
     if version == LATEST_VERSION:
@@ -581,7 +588,7 @@ class Repository:
                     f"cannot be the same!"
                 )
 
-        # verify the artifact exists
+        # ensure the artifact exists
         version_s3path = self._get_artifact_s3path(name=name, version=version)
         version_s3uri = version_s3path.uri
         if version_s3path.exists(bsm=bsm) is False:

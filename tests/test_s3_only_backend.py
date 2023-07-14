@@ -27,6 +27,8 @@ def test_encode_version():
     assert encode_version("LATEST") == "LATEST"
     assert encode_version(1) == "1"
     assert encode_version(999999) == "999999"
+    assert encode_version("1") == "1"
+    assert encode_version("000001") == "1"
 
 
 def test_encode_filename():
@@ -35,6 +37,9 @@ def test_encode_filename():
     assert encode_filename("999999") == "000001_999999"
     assert encode_filename("2") == "999998_000002"
     assert encode_filename("1") == "999999_000001"
+    assert encode_filename(999999) == "000001_999999"
+    assert encode_filename(2) == "999998_000002"
+    assert encode_filename(1) == "999999_000001"
 
 
 def test_decode_filename():
@@ -90,6 +95,8 @@ class Test(BaseMockTest):
         moto.mock_sts,
         moto.mock_s3,
     ]
+
+    _mock_list = []
 
     repo: Repository = None
 
