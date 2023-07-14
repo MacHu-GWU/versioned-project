@@ -272,3 +272,4 @@ class Hashes:
 
 
 hashes = Hashes()
+hashes.use_sha256()

@@ -8,6 +8,7 @@ omit =
     versioned/_version.py
     versioned/cli.py
     versioned/paths.py
+    versioned/compat.py
 
 [report]
 # Regexes for lines to exclude from consideration

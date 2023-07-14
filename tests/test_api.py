@@ -10,10 +10,10 @@ def test():
     _ = api.S3_PREFIX
     _ = api.LATEST_VERSION
     _ = api.VERSION_ZFILL
+    _ = api.METADATA_KEY_ARTIFACT_SHA256
     _ = api.Artifact
     _ = api.Alias
     _ = api.Repository
-    _ = api.Repository.get_artifact_s3path
     _ = api.Repository.put_artifact
     _ = api.Repository.get_artifact_version
     _ = api.Repository.list_artifact_versions
@@ -31,6 +31,9 @@ def test():
     _ = api.Alias.get_version_content
     _ = api.Alias.s3path_secondary_version
     _ = api.Alias.get_secondary_version_content
+    _ = api.s3_and_dynamodb_backend
+    _ = api.s3_only_backend
+
 
 if __name__ == "__main__":
     from versioned.tests import run_cov_test

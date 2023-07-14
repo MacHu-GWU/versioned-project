@@ -15,6 +15,19 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
+0.5.1 (2023-07-14)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Features and Improvements**
+
+- add S3 only backend in ``s3_only_backend.py`` module. It doesn't require DynamoDB table.
+- the old ``core.py`` module is renamed to ``s3_and_dynamodb_backend.py`` module. The public API is not changed.
+- suggest to use ``from versioned import api as versioned``, then use ``versioned.s3_and_dynamodb_backend`` or ``versioned.s3_only_backend`` to access the backend.
+
+**Minor Improvements**
+
+- improve test for ``s3_and_dynamodb_backend``.
+
+
 0.4.2 (2023-07-07)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Bugfixes**

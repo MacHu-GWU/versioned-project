@@ -64,6 +64,7 @@ class Alias:
 
     :param name: artifact name.
     :param alias: alias name. alias name cannot have hyphen
+    :param update_at: an utc datetime object when this artifact was updated
     :param version: artifact version. If ``None``, the latest version is used.
     :param secondary_version: see above.
     :param secondary_version_weight: an integer between 0 ~ 100.
@@ -73,6 +74,7 @@ class Alias:
 
     name: str
     alias: str
+    update_at: datetime
     version: str
     secondary_version: T.Optional[str]
     secondary_version_weight: T.Optional[int]
@@ -109,6 +111,8 @@ class Alias:
 @dataclasses.dataclass
 class Repository:
     """
+    Repository class for artifact store.
+
     :param aws_region: the aws region of where the artifact store is.
     :param s3_bucket: the s3 bucket name of the artifact store.
     :param s3_prefix: the s3 prefix (folder path) of the artifact store.
@@ -129,10 +133,10 @@ class Repository:
         """
         return S3Path(self.s3_bucket).joinpath(self.s3_prefix).to_dir()
 
-    def get_artifact_s3path(self, name: str, version: str) -> S3Path:
+    def _get_artifact_s3path(self, name: str, version: str) -> S3Path:
         return self.s3dir_artifact_store.joinpath(
             name,
-            f"{dynamodb.encode_version(version)}{self.suffix}",
+            f"{dynamodb.encode_version_sk(version)}{self.suffix}",
         )
 
     def bootstrap(
@@ -141,6 +145,9 @@ class Repository:
         dynamodb_write_capacity_units: T.Optional[int] = None,
         dynamodb_read_capacity_units: T.Optional[int] = None,
     ):
+        """
+        Create necessary backend resources for the artifact store.
+        """
         bootstrap(
             bsm=bsm,
             aws_region=self.aws_region,
@@ -173,7 +180,7 @@ class Repository:
         artifact: dynamodb.Artifact,
     ) -> Artifact:
         dct = artifact.to_dict()
-        dct["s3uri"] = self.get_artifact_s3path(
+        dct["s3uri"] = self._get_artifact_s3path(
             name=artifact.name,
             version=artifact.version,
         ).uri
@@ -184,14 +191,14 @@ class Repository:
         alias: dynamodb.Alias,
     ) -> Alias:
         dct = alias.to_dict()
-        dct["version_s3uri"] = self.get_artifact_s3path(
+        dct["version_s3uri"] = self._get_artifact_s3path(
             name=alias.name,
             version=alias.version,
         ).uri
         if alias.secondary_version is None:
             dct["secondary_version_s3uri"] = None
         else:
-            dct["secondary_version_s3uri"] = self.get_artifact_s3path(
+            dct["secondary_version_s3uri"] = self._get_artifact_s3path(
                 name=alias.name,
                 version=alias.secondary_version,
             ).uri
@@ -229,11 +236,12 @@ class Repository:
         artifact = self._artifact_class.new(name=name)
         artifact_sha256 = hashes.of_bytes(content)
         artifact.sha256 = artifact_sha256
-        s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
+        s3path = self._get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
 
         # do nothing if the content is not changed
         if s3path.exists():
             if s3path.metadata["artifact_sha256"] == artifact_sha256:
+                artifact.update_at = s3path.last_modified_at
                 return self._get_artifact_object(artifact=artifact)
 
         final_metadata = dict(
@@ -248,6 +256,8 @@ class Repository:
             content_type=content_type,
             tags=tags,
         )
+        s3path.head_object()
+        artifact.update_at = s3path.last_modified_at
         artifact.save()
         return self._get_artifact_object(artifact=artifact)
 
@@ -260,7 +270,7 @@ class Repository:
         try:
             artifact = artifact_class.get(
                 hash_key=name,
-                range_key=dynamodb.encode_version(version),
+                range_key=dynamodb.encode_version_sk(version),
             )
             if artifact.is_deleted:
                 raise exc.ArtifactNotFoundError(
@@ -327,18 +337,24 @@ class Repository:
         if len(artifacts) == 0:
             raise exc.ArtifactNotFoundError(f"name = {name!r}")
         elif len(artifacts) == 1:
-            new_version = "1"
+            new_version = dynamodb.encode_version(1)
         else:
             new_version = str(int(artifacts[1].version) + 1)
-        artifact = Artifact.new(name=name, version=new_version)
-        artifact.sha256 = artifacts[0].sha256
-        artifact.save()
-        s3path_old = self.get_artifact_s3path(
+
+        # copy artifact from latest to the new version
+        s3path_old = self._get_artifact_s3path(
             name=name,
             version=constants.LATEST_VERSION,
         )
-        s3path_new = self.get_artifact_s3path(name=name, version=new_version)
+        s3path_new = self._get_artifact_s3path(name=name, version=new_version)
         s3path_old.copy_to(s3path_new)
+        s3path_new.head_object()
+
+        # create artifact object
+        artifact = Artifact.new(name=name, version=new_version)
+        artifact.sha256 = artifacts[0].sha256
+        artifact.update_at = s3path_new.last_modified_at
+        artifact.save()
         return self._get_artifact_object(artifact=artifact)
 
     def delete_artifact_version(
@@ -391,20 +407,31 @@ class Repository:
         :param secondary_version_weight: an integer between 0 ~ 100.
         """
         # validate argument
+        # todo: add more alias naming convention rules
         if "-" in alias:  # pragma: no cover
             raise ValueError("alias cannot have hyphen")
 
+        version = dynamodb.encode_version(version)
+
         if secondary_version is not None:
+            secondary_version = dynamodb.encode_version(secondary_version)
             if not isinstance(secondary_version_weight, int):
                 raise TypeError("secondary_version_weight must be int")
             if not (0 <= secondary_version_weight < 100):
                 raise ValueError("secondary_version_weight must be 0 <= x < 100")
+            if version == secondary_version:
+                raise ValueError(
+                    f"version {version!r} and secondary_version {secondary_version!r} "
+                    f"cannot be the same!"
+                )
 
         # ensure the artifact exists
         Artifact = self._artifact_class
-        if version is None:
-            version = constants.LATEST_VERSION
-        self._get_artifact_dynamodb_item(Artifact, name=name, version=version)
+        self._get_artifact_dynamodb_item(
+            Artifact,
+            name=name,
+            version=version,
+        )
         if secondary_version is not None:
             self._get_artifact_dynamodb_item(
                 Artifact,
@@ -420,7 +447,6 @@ class Repository:
             secondary_version=secondary_version,
             secondary_version_weight=secondary_version_weight,
         )
-
         alias.save()
         return self._get_alias_object(alias=alias)
 
@@ -439,7 +465,7 @@ class Repository:
         try:
             return self._get_alias_object(
                 alias=Alias.get(
-                    hash_key=dynamodb.encode_alias_key(name),
+                    hash_key=dynamodb.encode_alias_pk(name),
                     range_key=alias,
                 ),
             )
@@ -458,7 +484,7 @@ class Repository:
         Alias = self._alias_class
         return [
             self._get_alias_object(alias=alias)
-            for alias in Alias.query(hash_key=dynamodb.encode_alias_key(name))
+            for alias in Alias.query(hash_key=dynamodb.encode_alias_pk(name))
         ]
 
     def delete_alias(
@@ -483,7 +509,7 @@ class Repository:
 
         :param name: artifact name.
         """
-        s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
+        s3path = self._get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
         s3dir = s3path.parent
         s3dir.delete()
 
@@ -493,7 +519,7 @@ class Repository:
             for artifact in Artifact.query(hash_key=name):
                 batch.delete(artifact)
         with Alias.batch_write() as batch:
-            for alias in Alias.query(hash_key=dynamodb.encode_alias_key(name)):
+            for alias in Alias.query(hash_key=dynamodb.encode_alias_pk(name)):
                 batch.delete(alias)
 
     def purge_all(self):
