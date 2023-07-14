@@ -9,7 +9,7 @@ from versioned import exc
 from versioned import constants
 from versioned.dynamodb import encode_version_sk
 from versioned.tests.mock_aws import BaseMockTest
-from versioned.core import Repository
+from versioned.s3_and_dynamodb_backend import Repository
 
 from rich import print as rprint
 
@@ -298,4 +298,4 @@ class Test(BaseMockTest):
 if __name__ == "__main__":
     from versioned.tests import run_cov_test
 
-    run_cov_test(__file__, "versioned.core", preview=False)
+    run_cov_test(__file__, "versioned.s3_and_dynamodb_backend", preview=False)
