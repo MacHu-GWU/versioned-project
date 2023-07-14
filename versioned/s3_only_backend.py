@@ -118,11 +118,6 @@ class Artifact(Base):
     s3uri: str
     sha256: str
 
-    # def __post_init__(self):
-    #     if self.version is None:
-    #         self.version = LATEST_VERSION
-    #     self.version = str(self.version)
-
     @property
     def update_datetime(self) -> datetime:
         """
@@ -142,22 +137,6 @@ class Artifact(Base):
         Get the content of this artifact version.
         """
         return self.s3path.read_bytes(bsm=bsm)
-
-    # @classmethod
-    # def _from_s3uri(
-    #     cls,
-    #     bsm: BotoSesManager,
-    #     s3uri: str,
-    # ):
-    #     s3path = S3Path.from_s3_uri(s3uri)
-    #     s3path.head_object(bsm=bsm)
-    #     return cls(
-    #         name=s3path.parent.parent.basename,
-    #         version=decode_version(s3path.fname),
-    #         update_at=s3path.last_modified_at,
-    #         s3uri=s3uri,
-    #         sha256=s3path.metadata[METADATA_KEY_ARTIFACT_SHA256],
-    #     )
 
 
 @dataclasses.dataclass
@@ -184,15 +163,6 @@ class Alias(Base):
     secondary_version_weight: T.Optional[int]
     version_s3uri: str
     secondary_version_s3uri: T.Optional[str]
-
-    # def __post_init__(self):
-    #     if self.version is None:
-    #         self.version = LATEST_VERSION
-    #     self.version = str(self.version)
-    #     if self.secondary_version is not None:
-    #         self.secondary_version = str(LATEST_VERSION)
-    #         if self.version == self.secondary_version:
-    #             raise
 
     @property
     def update_datetime(self) -> datetime:
@@ -248,6 +218,8 @@ class Alias(Base):
 @dataclasses.dataclass
 class Repository:
     """
+    Repository class for artifact store.
+
     :param aws_region: the aws region of where the artifact store is.
     :param s3_bucket: the s3 bucket name of the artifact store.
     :param s3_prefix: the s3 prefix (folder path) of the artifact store.

@@ -317,7 +317,7 @@ class Test(BaseMockTest):
         # ======================================================================
         # put alias the first time
         ali = self.repo.put_alias(bsm=self.bsm, name=name, alias=alias)
-        rprint(ali)
+        # rprint(ali)
         expected_update_at = ali.update_at
 
         def _assert_alias(ali):
@@ -425,7 +425,6 @@ class Test(BaseMockTest):
     def test(self):
         self._test_error()
         self._test_artifact_and_alias()
-        pass
 
 
 if __name__ == "__main__":
