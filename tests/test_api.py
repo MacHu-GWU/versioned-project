@@ -10,6 +10,7 @@ def test():
     _ = api.S3_PREFIX
     _ = api.LATEST_VERSION
     _ = api.VERSION_ZFILL
+    _ = api.METADATA_KEY_ARTIFACT_SHA256
     _ = api.Artifact
     _ = api.Alias
     _ = api.Repository
