@@ -3,15 +3,49 @@
 import moto
 import pytest
 
+from datetime import datetime
 from s3pathlib import S3Path, context
 
 from versioned import exc
 from versioned import constants
 from versioned.dynamodb import encode_version_sk
 from versioned.tests.mock_aws import BaseMockTest
-from versioned.s3_and_dynamodb_backend import Repository
+from versioned.s3_and_dynamodb_backend import (
+    Alias,
+    Repository,
+)
 
 from rich import print as rprint
+
+
+class TestAlias:
+    def test_random_artifact(self):
+        ali = Alias(
+            name="deploy",
+            alias="LIVE",
+            update_at=datetime.utcnow(),
+            version="1",
+            secondary_version="2",
+            secondary_version_weight=50,
+            version_s3uri="s3uri1",
+            secondary_version_s3uri="s3uri2",
+        )
+        for _ in range(10):
+            assert ali.random_artifact() in ["s3uri1", "s3uri2"]
+
+        ali = Alias(
+            name="deploy",
+            alias="LIVE",
+            update_at=datetime.utcnow(),
+            version="1",
+            secondary_version=None,
+            secondary_version_weight=None,
+            version_s3uri="s3uri1",
+            secondary_version_s3uri=None,
+        )
+        for _ in range(10):
+            artifact_s3_uri = ali.random_artifact()
+            assert artifact_s3_uri == "s3uri1"
 
 
 class Test(BaseMockTest):

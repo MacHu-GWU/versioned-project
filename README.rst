@@ -54,7 +54,8 @@ The version and alias best practice for immutable artifacts and deployment.
 
 Tutorial:
 
-- `Quick Start <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/Quick-Start.ipynb>`_
+- `Quick Start - S3 and Dynamodb Backend <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/s3_and_dynamodb_backend.ipynb>`_
+- `Quick Start - S3 only Backend <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/s3_only_backend.ipynb>`_
 
 Learn why Blue / Green, Canary deployment and Rollback made easy with versioning and alias management.
 

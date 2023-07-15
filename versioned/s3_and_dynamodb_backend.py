@@ -2,6 +2,7 @@
 
 import typing as T
 
+import random
 import dataclasses
 from datetime import datetime
 
@@ -13,6 +14,7 @@ from pynamodb.connection import Connection
 from . import constants
 from . import dynamodb
 from . import exc
+from .compat import cached_property
 from .bootstrap import bootstrap
 from .vendor.hashes import hashes
 
@@ -106,6 +108,23 @@ class Alias:
         Get the content of the secondary artifact version of this alias.
         """
         return self.s3path_secondary_version.read_bytes(bsm=bsm)
+
+    @cached_property
+    def _version_weight(self) -> int:
+        if self.secondary_version_weight is None:
+            return 100
+        else:
+            return 100 - self.secondary_version_weight
+
+    def random_artifact(self) -> str:
+        """
+        Randomly return either the primary or secondary artifact version s3uri
+        based on the weight.
+        """
+        if random.randint(1, 100) <= self._version_weight:
+            return self.version_s3uri
+        else:
+            return self.secondary_version_s3uri
 
 
 @dataclasses.dataclass
