@@ -15,7 +15,24 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
-0.5.2 (2023-07-07)
+0.5.3 (2023-07-14)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Minor Improvements**
+
+- add validation to detect if human manually contaminate the artifact S3 dir.
+- add the missing ``Alias.random_artifact()`` method.
+
+**Bugfixes**
+
+- fix bug that sometimes it uses the wrong boto session to get the S3 metadata and S3 last modified time.
+
+**Miscellaneous**
+
+- Update the s3 and dynamodb backend example jupyter notebook.
+- Add s3 only backend example jupyter notebook.
+
+
+0.5.2 (2023-07-14)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Bugfixes**
 
@@ -27,7 +44,7 @@ x.y.z (Backlog)
 **Features and Improvements**
 
 - add S3 only backend in ``s3_only_backend.py`` module. It doesn't require DynamoDB table.
-- the old ``core.py`` module is renamed to ``s3_and_dynamodb_backend.py`` module. The public API is not changed.
+- the old ``core.py`` module is renamed to ``s3_and_dynamodb_backend.py`` module. The old API is kept intentionally for backward compatibility. However, it is scheduled to be removed in 1.X.Y release.
 - suggest to use ``from versioned import api as versioned``, then use ``versioned.s3_and_dynamodb_backend`` or ``versioned.s3_only_backend`` to access the backend.
 
 **Minor Improvements**
