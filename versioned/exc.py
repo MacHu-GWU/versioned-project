@@ -10,3 +10,7 @@ class ArtifactNotFoundError(Exception):
 
 class AliasNotFoundError(Exception):
     pass
+
+
+class ArtifactS3BackendError(Exception):
+    pass

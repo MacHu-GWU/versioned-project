@@ -322,6 +322,34 @@ class Repository:
             else:
                 raise e
 
+    def _list_artifact_versions_s3path(
+        self,
+        bsm: BotoSesManager,
+        name: str,
+        limit: int,
+    ) -> T.List[S3Path]:  # pragma: no cover
+        """
+        List the s3paths of artifact versions of this artifact. Perform additional
+        check to make sure the s3 dir structure are not contaminated.
+        """
+        s3dir_artifact = self._get_artifact_s3dir(name=name)
+        s3path_list = s3dir_artifact.iter_objects(bsm=bsm, limit=limit).all()
+        n = len(s3path_list)
+        if n >= 1:
+            if decode_filename(s3path_list[0].fname) != LATEST_VERSION:
+                raise exc.ArtifactS3BackendError(
+                    f"S3 folder {s3dir_artifact.uri} for artifact {name!r} is contaminated! "
+                    f"The first s3 object is not the LATEST version {s3path_list[0].uri}"
+                )
+        if n >= 2:
+            for s3path in s3path_list[1:]:
+                if decode_filename(s3path.fname).isdigit() is False:
+                    raise exc.ArtifactS3BackendError(
+                        f"S3 folder {s3dir_artifact.uri} for artifact {name!r} is contaminated! "
+                        f"Found non-numeric version {s3path.uri!r}"
+                    )
+        return s3path_list
+
     def get_latest_published_artifact_version_number(
         self,
         bsm: BotoSesManager,
@@ -334,8 +362,11 @@ class Repository:
         :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
-        s3dir_artifact = self._get_artifact_s3dir(name=name)
-        s3path_list = s3dir_artifact.iter_objects(bsm=bsm, limit=2).all()
+        s3path_list = self._list_artifact_versions_s3path(
+            bsm=bsm,
+            name=name,
+            limit=2,
+        )
         if len(s3path_list) in [0, 1]:
             return 0
         else:
@@ -479,21 +510,22 @@ class Repository:
         :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
-        s3dir_artifact = self._get_artifact_s3dir(name=name)
-        s3path_list = s3dir_artifact.iter_objects(bsm=bsm, limit=2).all()
-        n = len(s3path_list)
-        s3path_latest = self._get_artifact_s3path(
+        s3path_list = self._list_artifact_versions_s3path(
+            bsm=bsm,
             name=name,
-            version=LATEST_VERSION,
+            limit=2,
         )
+        n = len(s3path_list)
         if n == 0:
             raise exc.ArtifactNotFoundError(
                 f"artifact {name!r} not found! you must put artifact first!"
             )
-        elif n == 1:
+        s3path_latest = s3path_list[0]
+        if n == 1:
             new_version = "1"
             s3path_new = self._get_artifact_s3path(name=name, version=new_version)
             s3path_latest.copy_to(s3path_new, bsm=bsm)
+            s3path_new.head_object(bsm=bsm)
             return Artifact(
                 name=name,
                 version=new_version,
@@ -502,7 +534,8 @@ class Repository:
                 sha256=s3path_new.metadata[METADATA_KEY_ARTIFACT_SHA256],
             )
         else:
-            previous_version = decode_filename(s3path_list[1].fname)
+            s3path_previous = s3path_list[1]
+            previous_version = decode_filename(s3path_previous.fname)
             new_version = str(int(previous_version) + 1)
             s3path_new = self._get_artifact_s3path(name=name, version=new_version)
             s3path_previous = s3path_list[1]
@@ -516,6 +549,7 @@ class Repository:
                 )
             else:
                 s3path_latest.copy_to(s3path_new, bsm=bsm)
+                s3path_new.head_object(bsm=bsm)
                 return Artifact(
                     name=name,
                     version=new_version,
