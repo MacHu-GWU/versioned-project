@@ -58,6 +58,7 @@ def test_validate_alias_name():
         with pytest.raises(ValueError):
             validate_alias_name(alias)
 
+
 class TestAlias:
     def test_random_artifact(self):
         ali = Alias(
@@ -111,6 +112,7 @@ class Test(BaseMockTest):
 
     def _test_error(self):
         name = "deploy"
+        LIVE = "LIVE"
         self.repo.purge_all(bsm=self.bsm)
 
         # --- test Artifact error ---
@@ -124,8 +126,12 @@ class Test(BaseMockTest):
         artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 0
 
+        with pytest.raises(exc.ArtifactS3BackendError):
+            self.repo.delete_artifact_version(
+                bsm=self.bsm, name=name, version=constants.LATEST_VERSION
+            )
+
         # delete an non existing artifact version should always success for idempotency
-        self.repo.delete_artifact_version(bsm=self.bsm, name=name)
         self.repo.delete_artifact_version(bsm=self.bsm, name=name, version=1)
 
         # --- test Alias error ---
@@ -207,6 +213,9 @@ class Test(BaseMockTest):
 
         alias_list = self.repo.list_aliases(bsm=self.bsm, name=name)
         assert len(alias_list) == 0
+
+        # delete an non existing alias should always success for idempotency
+        self.repo.delete_alias(bsm=self.bsm, name=name, alias=LIVE)
 
     def _test_artifact_and_alias(self):
         name = "deploy"
@@ -384,6 +393,7 @@ class Test(BaseMockTest):
         assert len(ali_list) == 1
         _assert_alias(ali_list[0])
 
+        # the second version doesn't exists, should raise error
         with pytest.raises(exc.ArtifactNotFoundError):
             self.repo.put_alias(
                 bsm=self.bsm,
@@ -393,36 +403,51 @@ class Test(BaseMockTest):
                 secondary_version_weight=50,
             )
 
-        # --- test delete methods
-        # delete alias then get it back, should raise error
-        self.repo.delete_alias(bsm=self.bsm, name=name, alias=alias)
-        with pytest.raises(exc.AliasNotFoundError):
-            self.repo.get_alias(bsm=self.bsm, name=name, alias=alias)
+    def _test_delete_and_purge(self):
+        name = "deploy"
+        LIVE = "LIVE"
+        DEV = "DEV"
+
+        self.repo.purge_all(bsm=self.bsm)
+
+        # prepare
+        self.repo.put_artifact(bsm=self.bsm, name=name, content=b"v1")
+        self.repo.publish_artifact_version(bsm=self.bsm, name=name)
+        self.repo.put_artifact(bsm=self.bsm, name=name, content=b"v2")
+        self.repo.publish_artifact_version(bsm=self.bsm, name=name)
+        self.repo.put_artifact(bsm=self.bsm, name=name, content=b"v3")
+        self.repo.publish_artifact_version(bsm=self.bsm, name=name)
+
+        self.repo.put_alias(
+            bsm=self.bsm,
+            name=name,
+            alias=LIVE,
+            version=2,
+            secondary_version=3,
+            secondary_version_weight=10,
+        )
+        self.repo.put_alias(bsm=self.bsm, name=name, alias=DEV)
+
         ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
-        assert len(ali_list) == 0
+        assert len(ali_list) == 2
 
-        # delete artifact version then get it back, should raise error
-        self.repo.delete_artifact_version(bsm=self.bsm, name=name)
-        with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.get_artifact_version(bsm=self.bsm, name=name)
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
-        assert len(artifact_list) == 2
-
-        self.repo.delete_artifact_version(bsm=self.bsm, name=name, version=1)
-        with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.get_artifact_version(bsm=self.bsm, name=name, version=1)
-        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
-        assert len(artifact_list) == 1
-
-        # --- purge
-        # try to put alias based on a deleted version, then it should raise error
-        with pytest.raises(exc.ArtifactNotFoundError):
-            self.repo.put_alias(bsm=self.bsm, name=name, alias="DEV", version=1)
-
-        self.repo.put_alias(bsm=self.bsm, name=name, alias="DEV", version=2)
+        # delete alias then get it back, should raise error
+        self.repo.delete_alias(bsm=self.bsm, name=name, alias=DEV)
+        with pytest.raises(exc.AliasNotFoundError):
+            self.repo.get_alias(bsm=self.bsm, name=name, alias=DEV)
         ali_list = self.repo.list_aliases(bsm=self.bsm, name=name)
         assert len(ali_list) == 1
 
+        # delete artifact version then get it back, should raise error
+        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+        assert len(artifact_list) == 4
+        self.repo.delete_artifact_version(bsm=self.bsm, name=name, version=3)
+        with pytest.raises(exc.ArtifactNotFoundError):
+            self.repo.get_artifact_version(bsm=self.bsm, name=name, version=3)
+        artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
+        assert len(artifact_list) == 3
+
+        # --- purge
         self.repo.purge_artifact(bsm=self.bsm, name=name)
         artifact_list = self.repo.list_artifact_versions(bsm=self.bsm, name=name)
         assert len(artifact_list) == 0
@@ -432,6 +457,7 @@ class Test(BaseMockTest):
     def test(self):
         self._test_error()
         self._test_artifact_and_alias()
+        self._test_delete_and_purge()
 
 
 if __name__ == "__main__":

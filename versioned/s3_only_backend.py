@@ -326,14 +326,17 @@ class Repository:
         self,
         bsm: BotoSesManager,
         name: str,
-        limit: int,
+        limit: T.Optional[int] = None,
     ) -> T.List[S3Path]:  # pragma: no cover
         """
-        List the s3paths of artifact versions of this artifact. Perform additional
+        List the s3path of artifact versions of this artifact. Perform additional
         check to make sure the s3 dir structure are not contaminated.
         """
-        s3dir_artifact = self._get_artifact_s3dir(name=name)
-        s3path_list = s3dir_artifact.iter_objects(bsm=bsm, limit=limit).all()
+        s3dir_artifact = self._get_artifact_s3dir(name=name).joinpath("versions")
+        if limit is None:
+            s3path_list = s3dir_artifact.iter_objects(bsm=bsm).all()
+        else:
+            s3path_list = s3dir_artifact.iter_objects(bsm=bsm, limit=limit).all()
         n = len(s3path_list)
         if n >= 1:
             if decode_filename(s3path_list[0].fname) != LATEST_VERSION:
@@ -486,17 +489,21 @@ class Repository:
         :param bsm: ``boto_session_manager.BotoSesManager`` object.
         :param name: artifact name.
         """
-        s3dir_artifact = self._get_artifact_s3dir(name=name)
-        return [
-            Artifact(
+        artifact_list = list()
+        for s3path in self._list_artifact_versions_s3path(
+            bsm=bsm,
+            name=name,
+        ):
+            s3path.head_object(bsm=bsm)
+            artifact = Artifact(
                 name=name,
                 version=decode_filename(s3path.fname),
                 update_at=s3path.last_modified_at.isoformat(),
                 s3uri=s3path.uri,
                 sha256=s3path.metadata[METADATA_KEY_ARTIFACT_SHA256],
             )
-            for s3path in s3dir_artifact.iter_objects(bsm=bsm)
-        ]
+            artifact_list.append(artifact)
+        return artifact_list
 
     def publish_artifact_version(
         self,
@@ -537,9 +544,9 @@ class Repository:
             s3path_previous = s3path_list[1]
             previous_version = decode_filename(s3path_previous.fname)
             new_version = str(int(previous_version) + 1)
-            s3path_new = self._get_artifact_s3path(name=name, version=new_version)
             s3path_previous = s3path_list[1]
             if s3path_previous.etag == s3path_latest.etag:
+                s3path_previous.head_object(bsm=bsm)
                 return Artifact(
                     name=name,
                     version=previous_version,
@@ -548,6 +555,7 @@ class Repository:
                     sha256=s3path_previous.metadata[METADATA_KEY_ARTIFACT_SHA256],
                 )
             else:
+                s3path_new = self._get_artifact_s3path(name=name, version=new_version)
                 s3path_latest.copy_to(s3path_new, bsm=bsm)
                 s3path_new.head_object(bsm=bsm)
                 return Artifact(
@@ -562,7 +570,7 @@ class Repository:
         self,
         bsm: BotoSesManager,
         name: str,
-        version: T.Optional[T.Union[int, str]] = None,
+        version: T.Union[int, str],
     ):
         """
         Deletes a specific version of artifact. If version is not specified,
@@ -574,6 +582,10 @@ class Repository:
         :param name: artifact name.
         :param version: artifact version. If ``None``, delete the latest version.
         """
+        if encode_version(version) == LATEST_VERSION:
+            raise exc.ArtifactS3BackendError(
+                "You cannot delete the LATEST artifact version!"
+            )
         self._get_artifact_s3path(name=name, version=version).delete(bsm=bsm)
 
     # ------------------------------------------------------------------------------
