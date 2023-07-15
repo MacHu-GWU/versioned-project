@@ -687,14 +687,12 @@ class Repository:
         :param name: artifact name.
         """
         s3dir = self._get_artifact_s3dir(name=name).joinpath("aliases")
-        return [
-            self._get_alias_object(
-                bsm=bsm,
-                name=s3path.parent.parent.basename,
-                alias=s3path.fname,
-            )
-            for s3path in s3dir.iter_objects(bsm=bsm)
-        ]
+        alias_list = list()
+        for s3path in s3dir.iter_objects(bsm=bsm):
+            alias = Alias.from_dict(json.loads(s3path.read_text(bsm=bsm)))
+            alias.update_at = s3path.last_modified_at.isoformat()
+            alias_list.append(alias)
+        return alias_list
 
     def delete_alias(
         self,
