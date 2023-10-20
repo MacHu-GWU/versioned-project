@@ -253,6 +253,18 @@ class Repository:
         """
         return self.s3dir_artifact_store.joinpath(name).to_dir()
 
+    def _encode_basename(self, version: T.Optional[T.Union[int, str]] = None) -> str:
+        return f"{encode_filename(version)}{self.suffix}"
+
+    def _decode_basename(self, basename: str) -> str:
+        """
+        Extract filename part from basename
+        """
+        basename = basename[::-1]
+        suffix = self.suffix[::-1]
+        basename = basename.replace(suffix, "", 1)
+        return basename[::-1]
+
     def _get_artifact_s3path(
         self,
         name: str,
@@ -263,7 +275,7 @@ class Repository:
         """
         return self._get_artifact_s3dir(name=name).joinpath(
             "versions",
-            f"{encode_filename(version)}{self.suffix}",
+            self._encode_basename(version),
         )
 
     def _get_alias_s3path(self, name: str, alias: str) -> S3Path:
@@ -339,14 +351,20 @@ class Repository:
             s3path_list = s3dir_artifact.iter_objects(bsm=bsm, limit=limit).all()
         n = len(s3path_list)
         if n >= 1:
-            if decode_filename(s3path_list[0].fname) != LATEST_VERSION:
+            if (
+                decode_filename(self._decode_basename(s3path_list[0].basename))
+                != LATEST_VERSION
+            ):
                 raise exc.ArtifactS3BackendError(
                     f"S3 folder {s3dir_artifact.uri} for artifact {name!r} is contaminated! "
                     f"The first s3 object is not the LATEST version {s3path_list[0].uri}"
                 )
         if n >= 2:
             for s3path in s3path_list[1:]:
-                if decode_filename(s3path.fname).isdigit() is False:
+                if (
+                    decode_filename(self._decode_basename(s3path.basename)).isdigit()
+                    is False
+                ):
                     raise exc.ArtifactS3BackendError(
                         f"S3 folder {s3dir_artifact.uri} for artifact {name!r} is contaminated! "
                         f"Found non-numeric version {s3path.uri!r}"
@@ -373,7 +391,7 @@ class Repository:
         if len(s3path_list) in [0, 1]:
             return 0
         else:
-            return int(decode_filename(s3path_list[1].fname))
+            return int(decode_filename(self._decode_basename(s3path_list[1].basename)))
 
     def _get_alias_object(
         self,
@@ -497,7 +515,7 @@ class Repository:
             s3path.head_object(bsm=bsm)
             artifact = Artifact(
                 name=name,
-                version=decode_filename(s3path.fname),
+                version=decode_filename(self._decode_basename(s3path.basename)),
                 update_at=s3path.last_modified_at.isoformat(),
                 s3uri=s3path.uri,
                 sha256=s3path.metadata[METADATA_KEY_ARTIFACT_SHA256],
@@ -542,7 +560,9 @@ class Repository:
             )
         else:
             s3path_previous = s3path_list[1]
-            previous_version = decode_filename(s3path_previous.fname)
+            previous_version = decode_filename(
+                self._decode_basename(s3path_previous.basename)
+            )
             new_version = str(int(previous_version) + 1)
             s3path_previous = s3path_list[1]
             if s3path_previous.etag == s3path_latest.etag:
