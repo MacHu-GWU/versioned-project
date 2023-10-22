@@ -52,6 +52,8 @@ Welcome to ``versioned`` Documentation
 ==============================================================================
 The version and alias best practice for immutable artifacts and deployment.
 
+.. image:: https://github.com/MacHu-GWU/versioned-project/assets/6800411/3c9e9a9b-1875-4660-a3be-82657e364fa2
+
 Tutorial:
 
 - `Quick Start - S3 and Dynamodb Backend <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/s3_and_dynamodb_backend.ipynb>`_
