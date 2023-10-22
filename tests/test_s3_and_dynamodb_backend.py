@@ -3,6 +3,7 @@
 import moto
 import pytest
 
+import time
 from datetime import datetime
 from s3pathlib import S3Path, context
 
@@ -323,10 +324,65 @@ class Test(BaseMockTest):
         ali_list = self.repo.list_aliases(name=name)
         assert len(ali_list) == 0
 
+    def _test_purge_artifact_versions(self):
+        name = "life_cycle"
+
+        def reset():
+            self.repo.purge_artifact(name=name)
+            for i in range(1, 1 + 5):
+                self.repo.put_artifact(
+                    name=name,
+                    content=f"v{i}".encode("utf-8"),
+                )
+                self.repo.publish_artifact_version(name=name)
+                time.sleep(1)
+
+        reset()
+        _, deleted_artifact_list = self.repo.purge_artifact_versions(
+            name=name,
+            keep_last_n=3,
+            purge_older_than_secs=0,
+        )
+        artifact_list = self.repo.list_artifact_versions(name=name)
+        assert len(artifact_list) == 4
+        assert len(deleted_artifact_list) == 2
+        assert [artifact.version for artifact in artifact_list] == [
+            "LATEST",
+            "5",
+            "4",
+            "3",
+        ]
+        assert [artifact.version for artifact in deleted_artifact_list] == ["2", "1"]
+
+        reset()
+        purge_time, deleted_artifact_list = self.repo.purge_artifact_versions(
+            name=name,
+            keep_last_n=0,
+            purge_older_than_secs=3,
+        )
+        artifact_list = self.repo.list_artifact_versions(name=name)
+        for artifact in artifact_list:
+            assert (purge_time - artifact.update_at).total_seconds() <= 3
+        for artifact in deleted_artifact_list:
+            assert (purge_time - artifact.update_at).total_seconds() > 3
+
+    def _test_list_artifact_names(self):
+        self.repo.purge_all()
+
+        self.repo.put_artifact(name="a", content=b"v1")
+        names = self.repo.list_artifact_names()
+        assert names == ["a"]
+
+        self.repo.put_artifact(name="b", content=b"v1")
+        names = self.repo.list_artifact_names()
+        assert names == ["a", "b"]
+
     def test(self):
         self.repo.connect_boto_session(self.bsm)
         self._test_error()
         self._test_artifact_and_alias()
+        self._test_purge_artifact_versions()
+        self._test_list_artifact_names()
 
 
 if __name__ == "__main__":

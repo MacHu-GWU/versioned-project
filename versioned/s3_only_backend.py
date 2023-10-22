@@ -5,7 +5,7 @@ import typing as T
 import json
 import random
 import dataclasses
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from boto_session_manager import BotoSesManager
 from s3pathlib import S3Path
@@ -608,6 +608,23 @@ class Repository:
             )
         self._get_artifact_s3path(name=name, version=version).delete(bsm=bsm)
 
+    def list_artifact_names(
+        self,
+        bsm: BotoSesManager,
+    ) -> T.List[str]:
+        """
+        Return a list of artifact names in this repository.
+
+        :param bsm: ``boto_session_manager.BotoSesManager`` object.
+
+        :return: list of artifact names.
+        """
+        names = list()
+        for p in self.s3dir_artifact_store.iterdir(bsm=bsm):
+            if p.is_dir():
+                names.append(p.basename)
+        return names
+
     # ------------------------------------------------------------------------------
     # Alias
     # ------------------------------------------------------------------------------
@@ -740,6 +757,38 @@ class Repository:
         :param alias: alias name. alias name cannot have hyphen.
         """
         self._get_alias_s3path(name=name, alias=alias).delete(bsm=bsm)
+
+    def purge_artifact_versions(
+        self,
+        bsm: BotoSesManager,
+        name: str,
+        keep_last_n: int = 10,
+        purge_older_than_secs: int = 90 * 24 * 60 * 60,
+    ) -> T.Tuple[datetime, T.List[Artifact]]:
+        """
+        If an artifact version is within the last ``keep_last_n`` versions
+        and is not older than ``purge_older_than_secs`` seconds, it will not be deleted.
+        Otherwise, it will be deleted. In addition, the latest version will
+        always be kept.
+
+        :param bsm: ``boto_session_manager.BotoSesManager`` object.
+        :param name: artifact name.
+        :param keep_last_n: number of versions to keep.
+        :param purge_older_than_secs: seconds to keep.
+        """
+        artifact_list = self.list_artifact_versions(bsm=bsm, name=name)
+        purge_time = datetime.utcnow().replace(tzinfo=timezone.utc)
+        expire = purge_time - timedelta(seconds=purge_older_than_secs)
+        deleted_artifact_list = list()
+        for artifact in artifact_list[keep_last_n + 1 :]:
+            if artifact.update_datetime < expire:
+                self.delete_artifact_version(
+                    bsm=bsm,
+                    name=name,
+                    version=artifact.version,
+                )
+                deleted_artifact_list.append(artifact)
+        return purge_time, deleted_artifact_list
 
     def purge_artifact(
         self,

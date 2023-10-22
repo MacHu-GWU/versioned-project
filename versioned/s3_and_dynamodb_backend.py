@@ -4,7 +4,7 @@ import typing as T
 
 import random
 import dataclasses
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from boto_session_manager import BotoSesManager
 from s3pathlib import S3Path, context
@@ -406,6 +406,18 @@ class Repository:
         )
         # print(res)
 
+    def list_artifact_names(self) -> T.List[str]:
+        """
+        Return a list of artifact names in this repository.
+
+        :return: list of artifact names.
+        """
+        names = list()
+        for p in self.s3dir_artifact_store.iterdir():
+            if p.is_dir():
+                names.append(p.basename)
+        return names
+
     # ------------------------------------------------------------------------------
     # Alias
     # ------------------------------------------------------------------------------
@@ -522,6 +534,35 @@ class Repository:
         """
         res = self._alias_class.new(name=name, alias=alias).delete()
         # print(res)
+
+    def purge_artifact_versions(
+        self,
+        name: str,
+        keep_last_n: int = 10,
+        purge_older_than_secs: int = 90 * 24 * 60 * 60,
+    ) -> T.Tuple[datetime, T.List[Artifact]]:
+        """
+        If an artifact version is within the last ``keep_last_n`` versions
+        and is not older than ``purge_older_than_secs`` seconds, it will not be deleted.
+        Otherwise, it will be deleted. In addition, the latest version will
+        always be kept.
+
+        :param name: artifact name.
+        :param keep_last_n: number of versions to keep.
+        :param purge_older_than_secs: seconds to keep.
+        """
+        artifact_list = self.list_artifact_versions(name=name)
+        purge_time = datetime.utcnow().replace(tzinfo=timezone.utc)
+        expire = purge_time - timedelta(seconds=purge_older_than_secs)
+        deleted_artifact_list = list()
+        for artifact in artifact_list[keep_last_n + 1 :]:
+            if artifact.update_at < expire:
+                self.delete_artifact_version(
+                    name=name,
+                    version=artifact.version,
+                )
+                deleted_artifact_list.append(artifact)
+        return purge_time, deleted_artifact_list
 
     def purge_artifact(
         self,
