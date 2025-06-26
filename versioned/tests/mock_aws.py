@@ -1,87 +1,83 @@
 # -*- coding: utf-8 -*-
 
 import typing as T
+import dataclasses
+
+import moto
+import boto3
+import botocore.exceptions
+from s3pathlib import S3Path, context
 from boto_session_manager import BotoSesManager
 
+if T.TYPE_CHECKING:  # pragma: no cover
+    from mypy_boto3_s3.client import S3Client
 
-class BaseMockTest:
-    """
-    Simple base class for mocking AWS services.
 
-    Usage::
+@dataclasses.dataclass(frozen=True)
+class MockAwsTestConfig:
+    use_mock: bool = dataclasses.field()
+    aws_region: str = dataclasses.field()
+    prefix: str = dataclasses.field()
+    aws_profile: T.Optional[str] = dataclasses.field(default=None)
 
-        import moto
 
-        class Test(BaseMockTest):
-            mock_list = [
-                moto.mock_s3,
-            ]
-
-            @classmethod
-            def setup_class_post_hook(cls):
-                cls.bsm.s3_client.create_bucket(Bucket="my-bucket")
-                cls.bsm.s3_client.put_object(
-                    Bucket="my-bucket",
-                    Key="file.txt",
-                    Body="hello world",
-                )
-
-            def test(self):
-                assert (
-                    self.bsm.s3_client.get_object(Bucket="my-bucket", Key="file.txt")["Body"]
-                    .read()
-                    .decode("utf-8")
-                    == "hello world"
-                )
-
-    """
-    use_mock: bool = True
-    region_name: str = "us-east-1"
-    mock_list: list = []
-
-    # Don't overwrite the following
-    bsm: T.Optional[BotoSesManager] = None
-    _mock_list: list = []
-
+class _BaseMockAwsTest:
     @classmethod
-    def setup_moto(cls):
-        if cls.use_mock:
-            for mock_abc in cls.mock_list:
-                mocker = mock_abc()
-                mocker.start()
-                cls._mock_list.append(mocker)
-        cls.bsm = BotoSesManager(region_name=cls.region_name)
+    def setup_mock(cls, mock_aws_test_config: MockAwsTestConfig):
+        cls.mock_aws_test_config = mock_aws_test_config
+        if mock_aws_test_config.use_mock:
+            cls.mock_aws = moto.mock_aws()
+            cls.mock_aws.start()
 
-    @classmethod
-    def teardown_moto(cls):
-        if cls.use_mock:
-            for mocker in cls._mock_list:
-                mocker.stop()
+        if mock_aws_test_config.use_mock:
+            cls.bsm: "BotoSesManager" = BotoSesManager(
+                region_name=mock_aws_test_config.aws_region
+            )
+        else:
+            cls.bsm: "BotoSesManager" = BotoSesManager(
+                profile_name=mock_aws_test_config.aws_profile,
+                region_name=mock_aws_test_config.aws_region,
+            )
 
-    @classmethod
-    def setup_class_pre_hook(cls):  # pragma: no cover
-        pass
+        cls.bucket: str = (
+            f"{cls.bsm.aws_account_id}-{mock_aws_test_config.aws_region}-data"
+        )
+        cls.s3dir_root: "S3Path" = (
+            S3Path(f"s3://{cls.bucket}").joinpath(mock_aws_test_config.prefix).to_dir()
+        )
 
-    @classmethod
-    def setup_class_post_hook(cls):  # pragma: no cover
-        pass
+        cls.boto_ses: "boto3.Session" = cls.bsm.boto_ses
+        context.attach_boto_session(cls.boto_ses)
+        cls.s3_client: "S3Client" = cls.boto_ses.client("s3")
 
-    @classmethod
-    def setup_class(cls):
-        cls.setup_class_pre_hook()
-        cls.setup_moto()
-        cls.setup_class_post_hook()
-
-    @classmethod
-    def teardown_class_pre_hook(cls):  # pragma: no cover
-        pass
-
-    @classmethod
-    def teardown_class_post_hook(cls):  # pragma: no cover
-        pass
+        try:
+            cls.s3_client.create_bucket(Bucket=cls.bucket)
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "BucketAlreadyExists":
+                pass
+            else:
+                raise e
 
     @classmethod
     def teardown_class(cls):
-        cls.teardown_class_pre_hook()
-        cls.teardown_moto()
-        cls.teardown_class_post_hook()
+        if cls.mock_aws_test_config.use_mock:
+            cls.mock_aws.stop()
+
+
+class BaseMockAwsTest(_BaseMockAwsTest):
+    use_mock: bool = True
+
+    @classmethod
+    def setup_class(cls):
+        mock_aws_test_config = MockAwsTestConfig(
+            use_mock=cls.use_mock,
+            aws_region="us-east-1",
+            prefix="project/versioned/tests/",
+            aws_profile="bmt_app_dev_us_east_1",  # Use default profile
+        )
+        cls.setup_mock(mock_aws_test_config)
+        cls.setup_mock_post_hook()
+
+    @classmethod
+    def setup_mock_post_hook(cls):
+        pass

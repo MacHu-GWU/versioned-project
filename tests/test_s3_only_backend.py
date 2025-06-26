@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import moto
 import pytest
 import time
 
@@ -8,14 +7,13 @@ from s3pathlib import S3Path
 
 from versioned import exc
 from versioned import constants
-from versioned.tests.mock_aws import BaseMockTest
+from versioned.tests.mock_aws import BaseMockAwsTest
 from versioned.s3_only_backend import (
     hashes,
     encode_version,
     encode_filename,
     decode_filename,
     validate_alias_name,
-    Artifact,
     Alias,
     Repository,
 )
@@ -90,20 +88,12 @@ class TestAlias:
             assert artifact_s3_uri == "s3uri1"
 
 
-class Test(BaseMockTest):
+class Test(BaseMockAwsTest):
     use_mock = True
-
-    mock_list = [
-        moto.mock_sts,
-        moto.mock_s3,
-    ]
-
-    _mock_list = []
-
-    repo: Repository = None
+    repo: Repository
 
     @classmethod
-    def setup_class_post_hook(cls):
+    def setup_mock_post_hook(cls):
         cls.repo = Repository(
             aws_region=cls.bsm.aws_region,
             s3_bucket=f"{cls.bsm.aws_account_id}-{cls.bsm.aws_region}-artifacts",
@@ -522,4 +512,8 @@ class Test(BaseMockTest):
 if __name__ == "__main__":
     from versioned.tests import run_cov_test
 
-    run_cov_test(__file__, "versioned.s3_only_backend", preview=False)
+    run_cov_test(
+        __file__,
+        "versioned.s3_only_backend",
+        preview=False,
+    )

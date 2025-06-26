@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 
 from boto_session_manager import BotoSesManager
 from s3pathlib import S3Path
-from func_args import NOTHING
+from func_args.api import OPT
 
 from . import exc
 from .compat import cached_property
@@ -422,9 +422,9 @@ class Repository:
         bsm: BotoSesManager,
         name: str,
         content: bytes,
-        content_type: str = NOTHING,
-        metadata: T.Dict[str, str] = NOTHING,
-        tags: T.Dict[str, str] = NOTHING,
+        content_type: str = OPT,
+        metadata: T.Dict[str, str] = OPT,
+        tags: T.Dict[str, str] = OPT,
     ) -> Artifact:
         """
         Create / Update artifact to the latest.
@@ -455,7 +455,7 @@ class Repository:
             artifact_name=name,
             artifact_sha256=artifact_sha256,
         )
-        if metadata is not NOTHING:
+        if metadata is not OPT:
             final_metadata.update(metadata)
 
         # write artifact to S3
