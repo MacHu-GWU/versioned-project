@@ -4,19 +4,20 @@ import typing as T
 
 import random
 import dataclasses
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+from functools import cached_property
 
 from boto_session_manager import BotoSesManager
 from s3pathlib import S3Path, context
 from func_args import NOTHING
 from pynamodb.connection import Connection
+from .vendor.hashes import hashes
 
 from . import constants
 from . import dynamodb
 from . import exc
-from .compat import cached_property
+from .utils import get_utc_now
 from .bootstrap import bootstrap
-from .vendor.hashes import hashes
 
 hashes.use_sha256()
 
@@ -552,7 +553,7 @@ class Repository:
         :param purge_older_than_secs: seconds to keep.
         """
         artifact_list = self.list_artifact_versions(name=name)
-        purge_time = datetime.utcnow().replace(tzinfo=timezone.utc)
+        purge_time = get_utc_now()
         expire = purge_time - timedelta(seconds=purge_older_than_secs)
         deleted_artifact_list = list()
         for artifact in artifact_list[keep_last_n + 1 :]:

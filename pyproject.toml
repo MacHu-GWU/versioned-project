@@ -67,6 +67,7 @@ dev = [
     "wheel>=0.45.0,<1.0.0", # build wheel package
     "build>=1.2.1,<2.0.0", # build source distribution
     "rich>=13.8.1,<14.0.0", # pretty print
+    "boto3_stubs[s3]>=1.37.0,<2.0.0", # AWS S3 type stubs for IDE auto-completion
 ]
 
 # ------------------------------------------------------------------------------

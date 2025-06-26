@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 
-import moto
-import pytest
+from versioned.s3_and_dynamodb_backend import (
+    Alias,
+    Repository,
+)
 
+import pytest
 import time
 from datetime import datetime
+
 from s3pathlib import S3Path, context
 
 from versioned import exc
 from versioned import constants
 from versioned.dynamodb import encode_version_sk
-from versioned.tests.mock_aws import BaseMockTest
-from versioned.s3_and_dynamodb_backend import (
-    Alias,
-    Repository,
-)
+from versioned.tests.mock_aws import BaseMockAwsTest
 
 from rich import print as rprint
 
@@ -49,21 +49,12 @@ class TestAlias:
             assert artifact_s3_uri == "s3uri1"
 
 
-class Test(BaseMockTest):
+class Test(BaseMockAwsTest):
     use_mock = True
-
-    mock_list = [
-        moto.mock_sts,
-        moto.mock_s3,
-        moto.mock_dynamodb,
-    ]
-
-    _mock_list = []
-
-    repo: Repository = None
+    repo: Repository
 
     @classmethod
-    def setup_class_post_hook(cls):
+    def setup_mock_post_hook(cls):
         context.attach_boto_session(cls.bsm.boto_ses)
         cls.repo = Repository(
             aws_region=cls.bsm.aws_region,
