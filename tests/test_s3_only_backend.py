@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import pytest
-import time
-
-from s3pathlib import S3Path
-
-from versioned import exc
-from versioned import constants
-from versioned.tests.mock_aws import BaseMockAwsTest
 from versioned.s3_only_backend import (
     hashes,
     encode_version,
@@ -17,6 +9,15 @@ from versioned.s3_only_backend import (
     Alias,
     Repository,
 )
+
+import pytest
+import time
+
+from s3pathlib import S3Path
+
+from versioned import exc
+from versioned import constants
+from versioned.tests.mock_aws import BaseMockAwsTest
 
 from rich import print as rprint
 
@@ -457,7 +458,9 @@ class Test(BaseMockAwsTest):
                     content=f"v{i}".encode("utf-8"),
                 )
                 self.repo.publish_artifact_version(bsm=self.bsm, name=name)
-                time.sleep(1)
+                time.sleep(
+                    1
+                )  # important! the purge_artifact_versions(purge_older_than_secs=...) depends on this
 
         reset()
         _, deleted_artifact_list = self.repo.purge_artifact_versions(

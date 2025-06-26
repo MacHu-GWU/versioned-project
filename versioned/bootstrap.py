@@ -8,7 +8,7 @@ import typing as T
 from boto_session_manager import BotoSesManager
 from s3pathlib import context
 
-from pynamodb.models import PAY_PER_REQUEST_BILLING_MODE
+from pynamodb.constants import PAY_PER_REQUEST_BILLING_MODE
 from pynamodb.connection import Connection
 from . import dynamodb
 
