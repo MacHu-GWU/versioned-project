@@ -198,9 +198,11 @@ def encode_version(version: T.Optional[T.Union[int, str]]) -> str:
             encode_version("000001")  # "1"
             encode_version("42")      # "42"
     """
+    # Handle None input as LATEST version
     if version is None:
         return LATEST_VERSION
     else:
+        # Convert to string and remove leading zeros: "000001" -> "1"
         return str(version).lstrip("0")
 
 
@@ -235,16 +237,21 @@ def encode_filename(version: T.Optional[T.Union[int, str]]) -> str:
         - 999998_000002 (version 2)
         - 999999_000001 (version 1, oldest)
     """
+    # First normalize the version input
     version = encode_version(version)
+    
+    # Special case: LATEST gets prefix of all zeros to appear first
     if version == LATEST_VERSION:
         return "{}_{}".format(
-            VERSION_ZFILL * "0",
-            LATEST_VERSION,
+            VERSION_ZFILL * "0",  # "000000"
+            LATEST_VERSION,       # "LATEST"
         )
     else:
+        # Numeric versions: reverse sort using (10^6 - version_num) as prefix
+        # This ensures higher version numbers get lower prefixes for reverse chronological order
         return "{}_{}".format(
-            str(10**VERSION_ZFILL - int(version)).zfill(VERSION_ZFILL),
-            version.zfill(VERSION_ZFILL),
+            str(10**VERSION_ZFILL - int(version)).zfill(VERSION_ZFILL),  # Reverse sort prefix
+            version.zfill(VERSION_ZFILL),  # Zero-padded version number
         )
 
 
@@ -270,9 +277,11 @@ def decode_filename(version: str) -> str:
     .. seealso::
         :func:`encode_filename` for the encoding process
     """
-    if version.startswith(VERSION_ZFILL * "0"):
+    # Check if filename starts with all zeros (indicates LATEST version)
+    if version.startswith(VERSION_ZFILL * "0"):  # Starts with "000000"
         return LATEST_VERSION
     else:
+        # Extract version number from second part after underscore and remove padding
         return str(int(version.split("_")[1]))
 
 
@@ -549,9 +558,13 @@ class Alias(Base):
                 # Returns secondary_version_s3uri ~20% of the time
                 selected_uri = alias.random_artifact()
         """
+        # Generate random number between 1-100 for traffic distribution
+        # _version_weight is the percentage that should go to primary version
         if random.randint(1, 100) <= self._version_weight:
+            # Random number falls within primary version's allocation
             return self.version_s3uri
         else:
+            # Random number falls within secondary version's allocation
             return self.secondary_version_s3uri
 
 
@@ -918,12 +931,16 @@ class Repository:
             Content deduplication is automatic - identical content won't be
             re-uploaded, making this operation safe for CI/CD pipelines.
         """
+        # Calculate SHA256 hash for content integrity checking and deduplication
         artifact_sha256 = hashes.of_bytes(content)
+        # Get S3 path for LATEST version (always encoded as 000000_LATEST{suffix})
         s3path = self._get_artifact_s3path(name=name, version=LATEST_VERSION)
 
-        # do nothing if the content is not changed
+        # Optimization: Skip upload if content hasn't changed (deduplication)
         if s3path.exists(bsm=bsm):
+            # Compare SHA256 hash stored in S3 metadata with new content hash
             if s3path.metadata[METADATA_KEY_ARTIFACT_SHA256] == artifact_sha256:
+                # Content is identical, return existing artifact info without uploading
                 return Artifact(
                     name=name,
                     version=LATEST_VERSION,
@@ -932,15 +949,17 @@ class Repository:
                     sha256=artifact_sha256,
                 )
 
-        # prepare metadata
+        # Content has changed or this is a new artifact, prepare for upload
+        # Build metadata dictionary with required fields
         final_metadata = dict(
-            artifact_name=name,
-            artifact_sha256=artifact_sha256,
+            artifact_name=name,  # Store artifact name for reference
+            artifact_sha256=artifact_sha256,  # Store hash for future deduplication
         )
+        # Merge user-provided metadata if any
         if metadata is not OPT:
             final_metadata.update(metadata)
 
-        # write artifact to S3
+        # Upload new content to S3 LATEST version with metadata and tags
         s3path.write_bytes(
             content,
             metadata=final_metadata,
@@ -948,8 +967,10 @@ class Repository:
             tags=tags,
             bsm=bsm,
         )
+        # Refresh object metadata to get accurate post-upload timestamp
         s3path.head_object(bsm=bsm)
 
+        # Return artifact object with updated information
         return Artifact(
             name=name,
             version=LATEST_VERSION,
@@ -1094,21 +1115,32 @@ class Repository:
             Published versions are immutable and cannot be modified. Use
             :meth:`delete_artifact_version` to remove unwanted versions.
         """
+        # Get up to 2 most recent artifact versions to check state
+        # Returns list sorted by S3 alphabetical order: [LATEST, most_recent_version]
         s3path_list = self._list_artifact_versions_s3path(
             bsm=bsm,
             name=name,
-            limit=2,
+            limit=2,  # Only need LATEST + 1 previous version for comparison
         )
         n = len(s3path_list)
+        
+        # Ensure LATEST version exists before we can publish
         if n == 0:
             raise exc.ArtifactNotFoundError(
                 f"artifact {name!r} not found! you must put artifact first!"
             )
+        
+        # First item is always LATEST due to filename encoding (000000_LATEST)
         s3path_latest = s3path_list[0]
+        
+        # Case 1: Only LATEST exists, create first numbered version (version 1)
         if n == 1:
             new_version = "1"
+            # Generate S3 path for new version 1 (will be encoded as 999999_000001)
             s3path_new = self._get_artifact_s3path(name=name, version=new_version)
+            # Copy LATEST content to version 1 with all metadata intact
             s3path_latest.copy_to(s3path_new, bsm=bsm)
+            # Refresh metadata after copy to get accurate timestamps
             s3path_new.head_object(bsm=bsm)
             return Artifact(
                 name=name,
@@ -1117,25 +1149,36 @@ class Repository:
                 s3uri=s3path_new.uri,
                 sha256=s3path_new.metadata[METADATA_KEY_ARTIFACT_SHA256],
             )
+        
+        # Case 2: Both LATEST and previous version exist, need to compare content
         else:
+            # Second item is the most recent numbered version
             s3path_previous = s3path_list[1]
+            # Extract version number from encoded filename (e.g., 999998_000002 -> "2")
             previous_version = decode_filename(
                 self._decode_basename(s3path_previous.basename)
             )
+            # Calculate next version number by incrementing
             new_version = str(int(previous_version) + 1)
-            s3path_previous = s3path_list[1]
+            
+            # Content deduplication: check if LATEST is identical to previous version
+            # ETags are MD5 hashes that change when content changes
             if s3path_previous.etag == s3path_latest.etag:
+                # Content is identical, return existing version instead of creating duplicate
                 s3path_previous.head_object(bsm=bsm)
                 return Artifact(
                     name=name,
-                    version=previous_version,
+                    version=previous_version,  # Return existing version, not new one
                     update_at=s3path_previous.last_modified_at.isoformat(),
                     s3uri=s3path_previous.uri,
                     sha256=s3path_previous.metadata[METADATA_KEY_ARTIFACT_SHA256],
                 )
             else:
+                # Content has changed, create new numbered version
                 s3path_new = self._get_artifact_s3path(name=name, version=new_version)
+                # Copy LATEST to new version with incremented number
                 s3path_latest.copy_to(s3path_new, bsm=bsm)
+                # Refresh metadata to get post-copy timestamps
                 s3path_new.head_object(bsm=bsm)
                 return Artifact(
                     name=name,
@@ -1276,61 +1319,81 @@ class Repository:
             Aliases are immediately active after creation. Ensure versions
             are thoroughly tested before updating production aliases.
         """
-        # validate input argument
-        # todo: add more alias naming convention rules
+        # Step 1: Validate alias naming conventions
+        # Hyphens conflict with our internal encoding scheme
         if "-" in alias:  # pragma: no cover
             raise ValueError("alias cannot have hyphen")
 
+        # Step 2: Normalize version inputs to standardized format
+        # Converts None/"LATEST"/1/"000001" to consistent strings ("LATEST"/"1")
         version = encode_version(version)
 
+        # Step 3: Validate traffic splitting configuration if secondary version provided
         if secondary_version is not None:
+            # Normalize secondary version the same way
             secondary_version = encode_version(secondary_version)
+            
+            # Ensure weight is proper integer type for traffic percentage
             if not isinstance(secondary_version_weight, int):
                 raise TypeError("secondary_version_weight must be int")
+            
+            # Weight must be 0-99 (percentage to route to secondary, 100-weight goes to primary)
             if not (0 <= secondary_version_weight < 100):
                 raise ValueError("secondary_version_weight must be 0 <= x < 100")
+            
+            # Prevent same version for primary and secondary (would be meaningless)
             if version == secondary_version:
                 raise ValueError(
                     f"version {version!r} and secondary_version {secondary_version!r} "
                     f"cannot be the same!"
                 )
 
-        # ensure the artifact exists
+        # Step 4: Verify primary version exists in S3 before creating alias
         version_s3path = self._get_artifact_s3path(name=name, version=version)
-        version_s3uri = version_s3path.uri
+        version_s3uri = version_s3path.uri  # Store URI for alias JSON
         if version_s3path.exists(bsm=bsm) is False:
             raise exc.ArtifactNotFoundError(
                 f"Cannot put alias to artifact name = {name!r}, version = {version}"
             )
 
+        # Step 5: Verify secondary version exists if traffic splitting is configured
         if secondary_version is not None:
             secondary_version_s3path = self._get_artifact_s3path(
                 name=name,
                 version=secondary_version,
             )
-            secondary_version_s3uri = secondary_version_s3path.uri
+            secondary_version_s3uri = secondary_version_s3path.uri  # Store URI for alias JSON
             if secondary_version_s3path.exists(bsm=bsm) is False:
                 raise exc.ArtifactNotFoundError(
-                    f"Cannot put alias to artifact name = {name!r}, version = {version}"
+                    f"Cannot put alias to artifact name = {name!r}, version = {secondary_version}"
                 )
         else:
+            # No traffic splitting, secondary URI remains None
             secondary_version_s3uri = None
 
-        # create alias object
+        # Step 6: Create alias data structure with all configuration
         alias_obj = Alias(
             name=name,
             alias=alias,
             version=version,
-            update_at="unknown",
+            update_at="unknown",  # Will be updated after S3 write with actual timestamp
             secondary_version=secondary_version,
             secondary_version_weight=secondary_version_weight,
-            version_s3uri=version_s3uri,
-            secondary_version_s3uri=secondary_version_s3uri,
+            version_s3uri=version_s3uri,  # Full S3 URI to primary version
+            secondary_version_s3uri=secondary_version_s3uri,  # Full S3 URI to secondary (or None)
         )
+        
+        # Step 7: Write alias configuration to S3 as JSON file
+        # Path: s3://bucket/prefix/artifact_name/aliases/alias_name.json
         alias_s3path = self._get_alias_s3path(name=name, alias=alias)
+        # Convert alias object to JSON and write to S3
         alias_s3path.write_text(json.dumps(alias_obj.to_dict()), bsm=bsm)
+        
+        # Step 8: Get accurate timestamp from S3 after write operation
         alias_s3path.head_object(bsm=bsm)
+        # Update alias object with real S3 modification timestamp
         alias_obj.update_at = alias_s3path.last_modified_at.isoformat()
+        
         return alias_obj
 
     def get_alias(
@@ -1495,18 +1558,31 @@ class Repository:
             This operation cannot be undone. Consider running with restrictive
             parameters first to verify which versions would be deleted.
         """
+        # Get all versions sorted chronologically (LATEST first, then newest to oldest)
         artifact_list = self.list_artifact_versions(bsm=bsm, name=name)
+        
+        # Record purge operation timestamp for consistent time reference
         purge_time = get_utc_now()
+        # Calculate cutoff datetime: versions older than this will be eligible for deletion
         expire = purge_time - timedelta(seconds=purge_older_than_secs)
+        
         deleted_artifact_list = list()
+        
+        # Skip first keep_last_n+1 versions (LATEST + keep_last_n numbered versions)
+        # This ensures we always keep the minimum required versions
         for artifact in artifact_list[keep_last_n + 1 :]:
+            # Only delete if version is older than the age threshold
+            # This implements the "AND" logic: must be both outside count AND older than age limit
             if artifact.update_datetime < expire:
+                # Delete the artifact version from S3
                 self.delete_artifact_version(
                     bsm=bsm,
                     name=name,
                     version=artifact.version,
                 )
+                # Track what was deleted for reporting
                 deleted_artifact_list.append(artifact)
+        
         return purge_time, deleted_artifact_list
 
     def purge_artifact(
