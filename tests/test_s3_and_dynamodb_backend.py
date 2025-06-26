@@ -379,4 +379,8 @@ class Test(BaseMockAwsTest):
 if __name__ == "__main__":
     from versioned.tests import run_cov_test
 
-    run_cov_test(__file__, "versioned.s3_and_dynamodb_backend", preview=False)
+    run_cov_test(
+        __file__,
+        "versioned.s3_and_dynamodb_backend",
+        preview=False,
+    )

@@ -18,4 +18,5 @@ sub packages and modules
     exc <exc>
     s3_and_dynamodb_backend <s3_and_dynamodb_backend>
     s3_only_backend <s3_only_backend>
+    utils <utils>
     

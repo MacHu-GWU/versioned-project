@@ -2,7 +2,6 @@
 
 from versioned.s3_only_backend import (
     hashes,
-    encode_version,
     encode_filename,
     decode_filename,
     validate_alias_name,
@@ -20,15 +19,6 @@ from versioned import constants
 from versioned.tests.mock_aws import BaseMockAwsTest
 
 from rich import print as rprint
-
-
-def test_encode_version():
-    assert encode_version(None) == "LATEST"
-    assert encode_version("LATEST") == "LATEST"
-    assert encode_version(1) == "1"
-    assert encode_version(999999) == "999999"
-    assert encode_version("1") == "1"
-    assert encode_version("000001") == "1"
 
 
 def test_encode_filename():

@@ -39,4 +39,8 @@ def test():
 if __name__ == "__main__":
     from versioned.tests import run_cov_test
 
-    run_cov_test(__file__, "versioned.api", preview=False)
+    run_cov_test(
+        __file__,
+        "versioned.api",
+        preview=False,
+    )
