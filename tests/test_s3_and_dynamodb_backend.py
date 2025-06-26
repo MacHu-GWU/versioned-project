@@ -13,6 +13,7 @@ from s3pathlib import S3Path, context
 
 from versioned import exc
 from versioned import constants
+from versioned.utils import get_utc_now
 from versioned.dynamodb import encode_version_sk
 from versioned.tests.mock_aws import BaseMockAwsTest
 
@@ -24,7 +25,7 @@ class TestAlias:
         ali = Alias(
             name="deploy",
             alias="LIVE",
-            update_at=datetime.utcnow(),
+            update_at=get_utc_now(),
             version="1",
             secondary_version="2",
             secondary_version_weight=50,
@@ -37,7 +38,7 @@ class TestAlias:
         ali = Alias(
             name="deploy",
             alias="LIVE",
-            update_at=datetime.utcnow(),
+            update_at=get_utc_now(),
             version="1",
             secondary_version=None,
             secondary_version_weight=None,
