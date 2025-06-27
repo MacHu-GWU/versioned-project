@@ -37,6 +37,70 @@ x.y.z (Backlog)
 - **No Breaking Changes**: Full backward compatibility maintained - all existing code will continue to work without modifications.
 - **Type Safety**: Enhanced type hints and parameter validation documentation for better IDE support and developer experience.
 
+**Public APIs**
+
+- ``versioned.api.exc``
+- ``versioned.api.DYNAMODB_TABLE_NAME``
+- ``versioned.api.S3_PREFIX``
+- ``versioned.api.LATEST_VERSION``
+- ``versioned.api.VERSION_ZFILL``
+- ``versioned.api.METADATA_KEY_ARTIFACT_SHA256``
+- ``versioned.api.s3_only_backend``
+- ``versioned.api.s3_only_backend.Artifact``
+- ``versioned.api.s3_only_backend.Artifact.update_datetime``
+- ``versioned.api.s3_only_backend.Artifact.s3path``
+- ``versioned.api.s3_only_backend.Artifact.get_content``
+- ``versioned.api.s3_only_backend.Alias.update_datetime``
+- ``versioned.api.s3_only_backend.Alias.s3path_version``
+- ``versioned.api.s3_only_backend.Alias.get_version_content``
+- ``versioned.api.s3_only_backend.Alias.s3path_secondary_version``
+- ``versioned.api.s3_only_backend.Alias.random_artifact``
+- ``versioned.api.s3_only_backend.Alias.get_secondary_version_content``
+- ``versioned.api.s3_only_backend.Repository``
+- ``versioned.api.s3_only_backend.Repository.s3dir_artifact_store``
+- ``versioned.api.s3_only_backend.Repository.bootstrap``
+- ``versioned.api.s3_only_backend.Repository.get_latest_published_artifact_version_number``
+- ``versioned.api.s3_only_backend.Repository.put_artifact``
+- ``versioned.api.s3_only_backend.Repository.get_artifact_version``
+- ``versioned.api.s3_only_backend.Repository.list_artifact_versions``
+- ``versioned.api.s3_only_backend.Repository.publish_artifact_version``
+- ``versioned.api.s3_only_backend.Repository.delete_artifact_version``
+- ``versioned.api.s3_only_backend.Repository.list_artifact_names``
+- ``versioned.api.s3_only_backend.Repository.put_alias``
+- ``versioned.api.s3_only_backend.Repository.get_alias``
+- ``versioned.api.s3_only_backend.Repository.list_aliases``
+- ``versioned.api.s3_only_backend.Repository.delete_alias``
+- ``versioned.api.s3_only_backend.Repository.purge_artifact_versions``
+- ``versioned.api.s3_only_backend.Repository.purge_artifact``
+- ``versioned.api.s3_only_backend.Repository.purge_all``
+- ``versioned.api.s3_and_dynamodb_backend``
+- ``versioned.api.s3_and_dynamodb_backend.Artifact``
+- ``versioned.api.s3_and_dynamodb_backend.Artifact.s3path``
+- ``versioned.api.s3_and_dynamodb_backend.Artifact.get_content``
+- ``versioned.api.s3_and_dynamodb_backend.Alias``
+- ``versioned.api.s3_and_dynamodb_backend.Alias.s3path_version``
+- ``versioned.api.s3_and_dynamodb_backend.Alias.get_version_content``
+- ``versioned.api.s3_and_dynamodb_backend.Alias.s3path_secondary_version``
+- ``versioned.api.s3_and_dynamodb_backend.Alias.get_secondary_version_content``
+- ``versioned.api.s3_and_dynamodb_backend.Alias.random_artifact``
+- ``versioned.api.s3_and_dynamodb_backend.Repository``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.s3dir_artifact_store``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.get_artifact_s3path``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.bootstrap``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.put_artifact``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.get_artifact_version``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.list_artifact_versions``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.publish_artifact_version``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.delete_artifact_version``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.list_artifact_names``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.put_alias``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.get_alias``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.list_aliases``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.delete_alias``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.purge_artifact_versions``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.purge_artifact``
+- ``versioned.api.s3_and_dynamodb_backend.Repository.purge_all``
+
 
 0.6.1 (2023-10-22)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
