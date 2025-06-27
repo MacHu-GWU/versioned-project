@@ -66,6 +66,12 @@ def bootstrap(
                 write_capacity_units = dynamodb_write_capacity_units
                 read_capacity_units = dynamodb_read_capacity_units
 
+    # bind s3pathlib to use the given boto session
     context.attach_boto_session(bsm.boto_ses)
-    with use_boto_session(bsm.boto_ses, aws_region=aws_region, restore_on_exit=False):
+    # bind pynamodb to use the given boto session
+    with use_boto_session(
+        bsm.boto_ses,
+        aws_region=aws_region,
+        restore_on_exit=False,
+    ):
         Base.create_table(wait=True)
