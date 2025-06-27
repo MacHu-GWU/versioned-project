@@ -10,6 +10,8 @@ from s3pathlib import context
 
 from pynamodb.constants import PAY_PER_REQUEST_BILLING_MODE
 from pynamodb.connection import Connection
+from pynamodb_session_manager.api import use_boto_session
+
 from . import dynamodb
 
 
@@ -40,17 +42,15 @@ def bootstrap(
     # create s3 bucket
     try:
         bsm.s3_client.head_bucket(Bucket=bucket_name)
-    except Exception as e: # pragma: no cover
+    except Exception as e:  # pragma: no cover
         if "Not Found" in str(e):
             bsm.s3_client.create_bucket(Bucket=bucket_name)
         else:
             raise e
 
     # create dynamodb table
-    if (
-        dynamodb_write_capacity_units is None
-        and dynamodb_read_capacity_units is None
-    ):
+    if dynamodb_write_capacity_units is None and dynamodb_read_capacity_units is None:
+
         class Base(dynamodb.Base):
             class Meta:
                 table_name = dynamodb_table_name
@@ -67,6 +67,5 @@ def bootstrap(
                 read_capacity_units = dynamodb_read_capacity_units
 
     context.attach_boto_session(bsm.boto_ses)
-    with bsm.awscli():
-        Connection()
+    with use_boto_session(bsm.boto_ses, aws_region=aws_region, restore_on_exit=False):
         Base.create_table(wait=True)

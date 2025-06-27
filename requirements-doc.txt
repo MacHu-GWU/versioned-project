@@ -79,6 +79,7 @@ ptyprocess==0.7.0 ; python_version >= "3.9" and python_version < "4.0" and (sys_
 pure-eval==0.2.3 ; python_version >= "3.9" and python_version < "4.0"
 pycparser==2.22 ; python_version >= "3.9" and python_version < "4.0" and platform_python_implementation != "PyPy"
 pygments==2.19.1 ; python_version >= "3.9" and python_version < "4.0"
+pynamodb-session-manager==0.1.2 ; python_version >= "3.9" and python_version < "4.0"
 pynamodb==6.1.0 ; python_version >= "3.9" and python_version < "4.0"
 python-dateutil==2.9.0.post0 ; python_version >= "3.9" and python_version < "4.0"
 python-json-logger==3.3.0 ; python_version >= "3.9" and python_version < "4.0"

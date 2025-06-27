@@ -48,6 +48,7 @@ dependencies = [
     "boto_session_manager>=1.8.1,<2.0.0", # Advanced boto3 session manager
     "s3pathlib>=2.3.3,<3.0.0", # AWS S3 path manipulation library
     "pynamodb>=6.0.0,<7.0.0", # AWS DynamoDB ORM
+    "pynamodb_session_manager>=0.1.2,<1.0.0", # PynamoDB improvement
 ]
 
 # ------------------------------------------------------------------------------

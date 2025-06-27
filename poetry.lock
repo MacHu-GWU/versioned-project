@@ -2750,6 +2750,28 @@ typing-extensions = {version = ">=4", markers = "python_version < \"3.11\""}
 signals = ["blinker (>=1.3,<2.0)"]
 
 [[package]]
+name = "pynamodb-session-manager"
+version = "0.1.2"
+description = "Context manager that solves PynamoDB's static credential limitation by enabling dynamic AWS session switching."
+optional = false
+python-versions = "<4.0,>=3.9"
+groups = ["main"]
+files = [
+    {file = "pynamodb_session_manager-0.1.2-py3-none-any.whl", hash = "sha256:864b296d79216538c14652a04281ede99120dd8bb9506f55810abb6727acc009"},
+    {file = "pynamodb_session_manager-0.1.2.tar.gz", hash = "sha256:3435f1a7eadcd6479087a02108b758eea74e8d9d5b38310cd6b0831502e2e169"},
+]
+
+[package.dependencies]
+boto_session_manager = ">=1.5.3,<2.0.0"
+botocore = ">=1.37.0,<2.0.0"
+pynamodb = ">=6.0.0,<7.0.0"
+
+[package.extras]
+dev = ["build (>=1.2.1,<2.0.0)", "pynamodb (>=6.1.0,<7.0.0)", "rich (>=13.8.1,<14.0.0)", "twine (>=6.0.0,<7.0.0)", "wheel (>=0.45.0,<1.0.0)"]
+doc = ["Sphinx (>=7.4.7,<8.0.0)", "docfly (==3.0.0)", "furo (==2024.8.6)", "ipython (>=8.18.1,<8.19.0)", "nbsphinx (>=0.8.12,<1.0.0)", "pygments (>=2.18.0,<3.0.0)", "rstobj (==1.2.1)", "sphinx-copybutton (>=0.5.2,<1.0.0)", "sphinx-design (>=0.6.1,<1.0.0)", "sphinx-jinja (>=2.0.2,<3.0.0)"]
+test = ["pytest (>=8.2.2,<9.0.0)", "pytest-cov (>=6.0.0,<7.0.0)"]
+
+[[package]]
 name = "pyproject-hooks"
 version = "1.2.0"
 description = "Wrappers to call pyproject.toml-based build backend hooks."
@@ -4290,4 +4312,4 @@ test = ["moto", "pytest", "pytest-cov", "rich"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "e3677e104b9ff2656c7be8b82063937e1d885f3353c247c62c36bdc8d4532e79"
+content-hash = "ca24bb703c5e777c4b01fb25b18a833faab51baaa9b8c861e5a28fd1a869909e"
