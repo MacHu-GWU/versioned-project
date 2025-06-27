@@ -3,7 +3,7 @@
     :target: https://versioned.readthedocs.io/en/latest/
     :alt: Documentation Status
 
-.. image:: https://github.com/MacHu-GWU/versioned-project/workflows/CI/badge.svg
+.. image:: https://github.com/MacHu-GWU/versioned-project/actions/workflows/main.yml/badge.svg
     :target: https://github.com/MacHu-GWU/versioned-project/actions?query=workflow:CI
 
 .. image:: https://codecov.io/gh/MacHu-GWU/versioned-project/branch/main/graph/badge.svg
@@ -18,16 +18,13 @@
 .. image:: https://img.shields.io/pypi/pyversions/versioned.svg
     :target: https://pypi.python.org/pypi/versioned
 
-.. image:: https://img.shields.io/badge/Release_History!--None.svg?style=social
+.. image:: https://img.shields.io/badge/✍️_Release_History!--None.svg?style=social&logo=github
     :target: https://github.com/MacHu-GWU/versioned-project/blob/main/release-history.rst
 
-.. image:: https://img.shields.io/badge/STAR_Me_on_GitHub!--None.svg?style=social
+.. image:: https://img.shields.io/badge/⭐_Star_me_on_GitHub!--None.svg?style=social&logo=github
     :target: https://github.com/MacHu-GWU/versioned-project
 
 ------
-
-.. image:: https://img.shields.io/badge/Link-Document-blue.svg
-    :target: https://versioned.readthedocs.io/en/latest/
 
 .. image:: https://img.shields.io/badge/Link-API-blue.svg
     :target: https://versioned.readthedocs.io/en/latest/py-modindex.html
@@ -50,37 +47,54 @@
 
 Welcome to ``versioned`` Documentation
 ==============================================================================
-The version and alias best practice for immutable artifacts and deployment.
+.. image:: https://versioned.readthedocs.io/en/latest/_static/versioned-logo.png
+    :target: https://versioned.readthedocs.io/en/latest/
 
-.. image:: https://github.com/MacHu-GWU/versioned-project/assets/6800411/3c9e9a9b-1875-4660-a3be-82657e364fa2
+**Versioned** provides enterprise-grade artifact version management and deployment patterns for AWS environments. It combines the performance of DynamoDB metadata storage with cost-effective S3 binary storage to enable sophisticated deployment strategies including blue/green deployments, canary releases, and instant rollbacks.
 
-Tutorial:
+**Key Features**
 
-- `Quick Start - S3 and Dynamodb Backend <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/s3_and_dynamodb_backend.ipynb>`_
-- `Quick Start - S3 only Backend <https://github.com/MacHu-GWU/versioned-project/blob/main/examples/s3_only_backend.ipynb>`_
+🚀 **Advanced Deployment Patterns**
+   - Blue/Green deployments with instant switching
+   - Canary releases with weighted traffic splitting
+   - One-click rollbacks to any previous version
 
-Learn why Blue / Green, Canary deployment and Rollback made easy with versioning and alias management.
+⚡ **High Performance Architecture**
+   - DynamoDB for sub-millisecond metadata queries
+   - S3 for cost-effective binary artifact storage
+   - Automatic content deduplication with SHA256 hashing
+
+🔒 **Enterprise Ready**
+   - Immutable version snapshots
+   - Soft deletion with recovery capabilities
+   - Comprehensive audit trails and metadata tracking
+
+🎯 **Simple API**
+   - Intuitive Python interface
+   - Safe public API that prevents data corruption
+   - Flexible session management for multi-account scenarios
 
 .. image:: https://github.com/MacHu-GWU/versioned-project/assets/6800411/57f7970e-3821-45a0-9deb-64890e04c129
 
-Related Project:
 
-- `aws_glue_artifact <https://github.com/MacHu-GWU/aws_glue_artifact-project>`_ enables the versioned deployment for AWS Glue.
-- `airflow_dag_artifact <https://github.com/MacHu-GWU/airflow_dag_artifact-project>`_ enables the versioned deployment for Airflow DAG deployment.
+Related Projects
+------------------------------------------------------------------------------
+- `aws_glue_artifact <https://github.com/MacHu-GWU/aws_glue_artifact-project>`_ - Versioned deployment for AWS Glue ETL jobs
+- `airflow_dag_artifact <https://github.com/MacHu-GWU/airflow_dag_artifact-project>`_ - Versioned deployment for Airflow DAGs
 
 
 .. _install:
 
-Install
+Installation
 ------------------------------------------------------------------------------
 
-``versioned`` is released on PyPI, so all you need is to:
+Install from PyPI:
 
 .. code-block:: console
 
     $ pip install versioned
 
-To upgrade to latest version:
+Upgrade to latest version:
 
 .. code-block:: console
 
