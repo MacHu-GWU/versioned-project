@@ -219,6 +219,11 @@ class Base(Model):
 
     The composite key pattern allows storing different types of records
     (artifacts, aliases) in the same table while maintaining query efficiency.
+
+    .. important::
+
+        This class has not defined the table name or region in it's meta,
+        so it must be subclassed to define the table name and region.
     """
 
     pk: T.Union[str, UnicodeAttribute] = UnicodeAttribute(hash_key=True)

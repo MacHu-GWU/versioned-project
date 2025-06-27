@@ -9,12 +9,11 @@ import pytest
 import time
 
 from s3pathlib import S3Path, context
-from pynamodb_session_manager.api import use_boto_session
 
 from versioned import exc
 from versioned import constants
 from versioned.utils import get_utc_now
-from versioned.dynamodb import encode_version_sk, Artifact, Alias
+from versioned.dynamodb import encode_version_sk
 from versioned.tests.mock_aws import BaseMockAwsTest
 
 from rich import print as rprint
@@ -63,10 +62,6 @@ class Test(BaseMockAwsTest):
             suffix=".txt",
         )
         cls.repo.bootstrap(cls.bsm)
-
-    def setup_method(self, method):
-        with use_boto_session(self.bsm, Artifact, restore_on_exit=False):
-            Artifact.create_table(wait=True)
 
     def _test_error(self):
         name = "deploy"

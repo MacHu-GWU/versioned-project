@@ -227,10 +227,12 @@ class Artifact:
         metadata = s3path.head_object(bsm=bsm).metadata
 
     .. warning::
+
         Never directly instantiate or modify :class:`~versioned.dynamodb.Artifact` ORM objects.
         Always use Repository methods that return this safe public API class instead.
 
     .. seealso::
+
         :class:`~versioned.dynamodb.Artifact` for internal ORM implementation details
     """
 
@@ -361,10 +363,12 @@ class Alias:
         Always use Repository methods that return this safe public API class instead.
 
     .. note::
+
         Alias names cannot contain hyphens due to DynamoDB key encoding constraints.
         Use underscores or camelCase for multi-word alias names.
 
     .. seealso::
+
         :class:`~versioned.dynamodb.Alias` for internal ORM implementation details
     """
 
@@ -690,6 +694,28 @@ class Repository:
             dynamodb_write_capacity_units=dynamodb_write_capacity_units,
             dynamodb_read_capacity_units=dynamodb_read_capacity_units,
         )
+        with use_boto_session(self._ArtifactOrmClass, bsm, restore_on_exit=False):
+            self._ArtifactOrmClass.describe_table()
+        with use_boto_session(self._AliasOrmClass, bsm, restore_on_exit=False):
+            self._AliasOrmClass.describe_table()
+
+    @cached_property
+    def _ArtifactOrmClass(self) -> T.Type[dynamodb.Artifact]:
+        class Artifact_(dynamodb.Artifact):
+            class Meta:
+                table_name = self.dynamodb_table_name
+                region = self.aws_region
+
+        return Artifact_
+
+    @cached_property
+    def _AliasOrmClass(self) -> T.Type[dynamodb.Alias]:
+        class Alias_(dynamodb.Alias):
+            class Meta:
+                table_name = self.dynamodb_table_name
+                region = self.aws_region
+
+        return Alias_
 
     def _get_artifact_object(
         self,
@@ -778,11 +804,11 @@ class Repository:
             only the timestamp is updated, avoiding unnecessary S3 uploads.
         """
         # Step 1: Create DynamoDB artifact record for LATEST version
-        artifact = dynamodb.Artifact.new(name=name)
+        artifact = self._ArtifactOrmClass.new(name=name)
 
         # Step 2: Calculate SHA256 hash for content deduplication and integrity
         artifact_sha256 = hashes.of_bytes(content)
-        # artifact.sha256 = artifact_sha256
+        artifact.sha256 = artifact_sha256
 
         # Step 3: Determine S3 location for LATEST version
         s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
@@ -821,7 +847,7 @@ class Repository:
         # Step 8: Save artifact metadata to DynamoDB with S3 timestamp
         artifact.update_at = s3path.last_modified_at
 
-        with use_boto_session(dynamodb.Artifact, bsm):
+        with use_boto_session(self._ArtifactOrmClass, bsm):
             artifact.save()
 
         # Step 9: Return public API artifact object with integrated S3 access
@@ -837,9 +863,9 @@ class Repository:
         Retrieve a specific artifact version from DynamoDB.
         """
         try:
-            with use_boto_session(dynamodb.Artifact, bsm):
+            with use_boto_session(self._ArtifactOrmClass, bsm):
                 # Use encode_version_sk to handle both int and str versions
-                artifact = dynamodb.Artifact.get(
+                artifact = self._ArtifactOrmClass.get(
                     hash_key=name,
                     range_key=dynamodb.encode_version_sk(version),
                 )
@@ -848,7 +874,7 @@ class Repository:
                         f"name = {name!r}, version = {version!r}"
                     )
                 return artifact
-        except dynamodb.Artifact.DoesNotExist:
+        except self._ArtifactOrmClass.DoesNotExist:
             raise exc.ArtifactNotFoundError(f"name = {name!r}, version = {version!r}")
 
     def get_artifact_version(
@@ -942,13 +968,13 @@ class Repository:
             Only returns non-deleted versions. Soft-deleted versions are excluded
             from the results.
         """
-        with use_boto_session(dynamodb.Artifact, bsm):
+        with use_boto_session(self._ArtifactOrmClass, bsm):
             artifact_list = [
                 self._get_artifact_object(artifact=artifact)
-                for artifact in dynamodb.Artifact.query(
+                for artifact in self._ArtifactOrmClass.query(
                     hash_key=name,
                     scan_index_forward=False,
-                    filter_condition=dynamodb.Artifact.is_deleted == False,
+                    filter_condition=self._ArtifactOrmClass.is_deleted == False,
                 )
             ]
             return artifact_list
@@ -1000,9 +1026,9 @@ class Repository:
         """
         # Step 1: Query for up to 2 most recent versions to determine next version number
         # Query returns results in descending order: [LATEST, most_recent_version]
-        with use_boto_session(dynamodb.Artifact, bsm):
+        with use_boto_session(self._ArtifactOrmClass, bsm):
             artifacts = list(
-                dynamodb.Artifact.query(
+                self._ArtifactOrmClass.query(
                     hash_key=name, scan_index_forward=False, limit=2
                 )
             )
@@ -1031,7 +1057,7 @@ class Repository:
             s3path_new.head_object(bsm=bsm)
 
             # Step 5: Create DynamoDB record for the new immutable version
-            artifact = dynamodb.Artifact.new(name=name, version=new_version)
+            artifact = self._ArtifactOrmClass.new(name=name, version=new_version)
             # Copy SHA256 from LATEST version (artifacts[0] is always LATEST due to sort order)
             artifact.sha256 = artifacts[0].sha256
             # Use S3 copy timestamp for consistency
@@ -1080,10 +1106,10 @@ class Repository:
         if version is None:
             version = constants.LATEST_VERSION
 
-        with use_boto_session(dynamodb.Artifact, bsm):
-            res = dynamodb.Artifact.new(name=name, version=version).update(
+        with use_boto_session(self._ArtifactOrmClass, bsm):
+            res = self._ArtifactOrmClass.new(name=name, version=version).update(
                 actions=[
-                    dynamodb.Artifact.is_deleted.set(True),
+                    self._ArtifactOrmClass.is_deleted.set(True),
                 ],
             )
             # print(res)
@@ -1236,8 +1262,8 @@ class Repository:
             )
 
         # Step 5: Create or update alias record in DynamoDB
-        with use_boto_session(dynamodb.Alias, bsm):
-            alias = dynamodb.Alias.new(
+        with use_boto_session(self._AliasOrmClass, bsm):
+            alias = self._AliasOrmClass.new(
                 name=name,
                 alias=alias,
                 version=version,
@@ -1291,13 +1317,13 @@ class Repository:
             selected_uri = alias.random_artifact()    # Traffic-weighted selection
         """
         try:
-            with use_boto_session(dynamodb.Alias, bsm):
-                alias = dynamodb.Alias.get(
+            with use_boto_session(self._AliasOrmClass, bsm):
+                alias = self._AliasOrmClass.get(
                     hash_key=dynamodb.encode_alias_pk(name),
                     range_key=alias,
                 )
                 return self._get_alias_object(alias=alias)
-        except dynamodb.Alias.DoesNotExist:
+        except self._AliasOrmClass.DoesNotExist:
             raise exc.AliasNotFoundError(f"name = {name!r}, alias = {alias!r}")
 
     def list_aliases(
@@ -1341,10 +1367,10 @@ class Repository:
             Returns all aliases regardless of their traffic splitting configuration.
             Check the secondary_version field to determine if traffic splitting is active.
         """
-        with use_boto_session(dynamodb.Alias, bsm):
+        with use_boto_session(self._AliasOrmClass, bsm):
             alias_list = [
                 self._get_alias_object(alias=alias)
-                for alias in dynamodb.Alias.query(
+                for alias in self._AliasOrmClass.query(
                     hash_key=dynamodb.encode_alias_pk(name)
                 )
             ]
@@ -1388,8 +1414,8 @@ class Repository:
             This is a permanent deletion. The alias configuration including any
             traffic splitting setup will be completely lost and cannot be recovered.
         """
-        with use_boto_session(dynamodb.Alias, bsm):
-            res = dynamodb.Alias.new(name=name, alias=alias).delete()
+        with use_boto_session(self._AliasOrmClass, bsm):
+            res = self._AliasOrmClass.new(name=name, alias=alias).delete()
             # print(res)
 
     def purge_artifact_versions(
@@ -1502,14 +1528,14 @@ class Repository:
         s3dir = s3path.parent
         s3dir.delete(bsm=bsm)
 
-        with use_boto_session(dynamodb.Artifact, bsm):
-            with dynamodb.Artifact.batch_write() as batch:
-                for artifact in dynamodb.Artifact.query(hash_key=name):
+        with use_boto_session(self._ArtifactOrmClass, bsm):
+            with self._ArtifactOrmClass.batch_write() as batch:
+                for artifact in self._ArtifactOrmClass.query(hash_key=name):
                     batch.delete(artifact)
 
-        with use_boto_session(dynamodb.Alias, bsm):
-            with dynamodb.Alias.batch_write() as batch:
-                for alias in dynamodb.Alias.query(
+        with use_boto_session(self._AliasOrmClass, bsm):
+            with self._AliasOrmClass.batch_write() as batch:
+                for alias in self._AliasOrmClass.query(
                     hash_key=dynamodb.encode_alias_pk(name)
                 ):
                     batch.delete(alias)
@@ -1554,7 +1580,7 @@ class Repository:
         self.s3dir_artifact_store.delete(bsm=bsm)
         # note: Artifact and Alias are in the same DynamoDB table
         # since we do scan, so we only need to delete all Artifact items
-        with use_boto_session(dynamodb.Artifact, bsm):
-            with dynamodb.Artifact.batch_write() as batch:
-                for item in dynamodb.Artifact.scan():
+        with use_boto_session(self._ArtifactOrmClass, bsm):
+            with self._ArtifactOrmClass.batch_write() as batch:
+                for item in self._ArtifactOrmClass.scan():
                     batch.delete(item)

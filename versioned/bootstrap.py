@@ -70,8 +70,8 @@ def bootstrap(
     context.attach_boto_session(bsm.boto_ses)
     # bind pynamodb to use the given boto session
     with use_boto_session(
-        bsm.boto_ses,
-        aws_region=aws_region,
+        Base,
+        bsm,
         restore_on_exit=False,
     ):
         Base.create_table(wait=True)
