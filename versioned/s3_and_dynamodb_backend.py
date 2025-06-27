@@ -169,7 +169,7 @@ from datetime import datetime, timedelta
 from functools import cached_property
 
 from boto_session_manager import BotoSesManager
-from s3pathlib import S3Path, context
+from s3pathlib import S3Path
 from func_args.api import OPT, remove_optional
 from pynamodb_session_manager.api import use_boto_session
 from .vendor.hashes import hashes
@@ -188,13 +188,20 @@ class Artifact:
     """
     Public API representation of a versioned artifact with integrated S3 access.
 
-    Provides a clean, user-friendly interface for working with artifact versions
-    that abstracts away the underlying DynamoDB storage details. Combines metadata
-    from DynamoDB with direct S3 content access capabilities.
+    This is the **safe, user-facing interface** for working with artifact versions.
+    It provides a clean abstraction over the underlying storage systems while preventing
+    direct access to internal DynamoDB ORM objects that could cause data corruption
+    if misused.
 
-    This is the primary data structure returned by Repository methods for artifact
-    operations. It encapsulates both the metadata (stored in DynamoDB) and provides
-    convenient methods for accessing the binary content (stored in S3).
+    **Public API vs Internal ORM Distinction**:
+
+    - **This class (Public API)**: Safe for end users, provides controlled access to artifact data
+    - **dynamodb.Artifact (Internal ORM)**: Direct DynamoDB model, used internally by Repository
+    - **User Safety**: End users should only work with this dataclass, never the ORM directly
+
+    The Repository class internally uses :class:`~versioned.dynamodb.Artifact` ORM objects
+    for DynamoDB operations, then converts them to this safe public interface. This prevents
+    users from accidentally corrupting data through direct ORM manipulation.
 
     :param name: Artifact name identifier
     :param version: Version identifier ("LATEST", "1", "2", etc.)
@@ -204,24 +211,27 @@ class Artifact:
 
     **Usage Examples**::
 
-        # Get artifact version
+        # Safe public API usage (recommended)
         artifact = repo.get_artifact_version("my-app", version=5)
 
-        # Access metadata
+        # Access metadata safely
         print(f"Version {artifact.version} updated at {artifact.update_at}")
         print(f"Content hash: {artifact.sha256}")
         print(f"Stored at: {artifact.s3uri}")
 
-        # Download content
+        # Download content with session management
         content = artifact.get_content(bsm)
 
         # Access S3 path for advanced operations
         s3path = artifact.s3path
-        metadata = s3path.head_object().metadata
+        metadata = s3path.head_object(bsm=bsm).metadata
 
-    .. note::
-        This class provides a simplified interface compared to the underlying
-        DynamoDB model. For direct DynamoDB operations, use the dynamodb module.
+    .. warning::
+        Never directly instantiate or modify :class:`~versioned.dynamodb.Artifact` ORM objects.
+        Always use Repository methods that return this safe public API class instead.
+
+    .. seealso::
+        :class:`~versioned.dynamodb.Artifact` for internal ORM implementation details
     """
 
     name: str
@@ -292,13 +302,20 @@ class Alias:
     """
     Public API representation of an artifact alias with traffic splitting support.
 
-    Provides sophisticated traffic routing capabilities for deployment patterns
-    including blue/green deployments, canary releases, and A/B testing. Encapsulates
-    both single-version aliases and dual-version traffic splitting configurations.
+    This is the **safe, user-facing interface** for working with artifact aliases and
+    traffic routing configurations. It provides controlled access to alias data while
+    preventing direct manipulation of internal DynamoDB ORM objects that could lead
+    to inconsistent or corrupted deployment configurations.
 
-    This is the primary data structure returned by Repository methods for alias
-    operations. It combines DynamoDB metadata with direct S3 access to both
-    primary and secondary artifact versions.
+    **Public API vs Internal ORM Distinction**:
+
+    - **This class (Public API)**: Safe for end users, provides controlled alias operations
+    - **dynamodb.Alias (Internal ORM)**: Direct DynamoDB model, used internally by Repository
+    - **User Safety**: End users should only work with this dataclass, never the ORM directly
+
+    The Repository class internally uses :class:`~versioned.dynamodb.Alias` ORM objects
+    for DynamoDB operations, then converts them to this safe public interface. This prevents
+    users from creating invalid traffic configurations or corrupting deployment state.
 
     :param name: Artifact name that this alias belongs to
     :param alias: Alias identifier ("prod", "staging", "dev", etc.) - cannot contain hyphens
@@ -318,7 +335,7 @@ class Alias:
 
     **Usage Examples**::
 
-        # Simple alias pointing to single version
+        # Safe public API usage (recommended)
         alias = repo.get_alias("my-app", "prod")
         content = alias.get_version_content(bsm)  # Always gets primary version
 
@@ -331,17 +348,24 @@ class Alias:
             secondary_version_weight=20
         )
 
-        # Random selection based on traffic weights
+        # Traffic-weighted selection for requests
         selected_uri = alias.random_artifact()  # Returns URI based on weights
 
-        # Access specific versions
+        # Access specific versions with session management
         primary_content = alias.get_version_content(bsm)
         if alias.secondary_version:
             secondary_content = alias.get_secondary_version_content(bsm)
 
+    .. warning::
+        Never directly instantiate or modify :class:`~versioned.dynamodb.Alias` ORM objects.
+        Always use Repository methods that return this safe public API class instead.
+
     .. note::
         Alias names cannot contain hyphens due to DynamoDB key encoding constraints.
         Use underscores or camelCase for multi-word alias names.
+
+    .. seealso::
+        :class:`~versioned.dynamodb.Alias` for internal ORM implementation details
     """
 
     name: str
@@ -540,6 +564,17 @@ class Repository:
     - **DynamoDB Metadata**: ``{dynamodb_table_name}`` contains version tracking and aliases
     - **Coordination**: Repository ensures consistency between both storage layers
 
+    **Session Management**:
+
+    Most Repository methods accept an optional ``bsm`` (BotoSesManager) parameter for
+    explicit AWS credential and session management. When ``bsm`` is provided, it overrides
+    the global session configuration established by :func:`~versioned.bootstrap.bootstrap`.
+
+    - **Default Behavior**: Uses global boto session configured via bootstrap
+    - **Explicit Session**: Pass ``bsm`` parameter to use specific credentials/configuration
+    - **Bootstrap Requirement**: Call :meth:`bootstrap` once before first use to bind
+      s3pathlib and pynamodb libraries to the appropriate boto session
+
     **Usage Examples**::
 
         # Initialize repository
@@ -548,17 +583,23 @@ class Repository:
             s3_bucket=\"my-artifacts\",
             s3_prefix=\"versioned-artifacts\",
             dynamodb_table_name=\"artifact-metadata\"
-        )\n
-        # Bootstrap AWS resources (run once)
-        repo.bootstrap(bsm)\n
-        # Upload new artifact version
-        artifact = repo.put_artifact(\"my-app\", content=binary_data)\n
-        # Create immutable version
-        version = repo.publish_artifact_version(\"my-app\")\n
+        )
+
+        # Bootstrap AWS resources (run once to bind libraries)
+        repo.bootstrap(bsm)
+
+        # Upload new artifact version (uses global session)
+        artifact = repo.put_artifact(\"my-app\", content=binary_data)
+
+        # Create immutable version with explicit session
+        version = repo.publish_artifact_version(\"my-app\", bsm=custom_bsm)
+
         # Create production alias
-        alias = repo.put_alias(\"my-app\", \"prod\", version=version.version)\n
-        # Retrieve via alias
-        prod_artifact = repo.get_alias(\"my-app\", \"prod\")\n        content = prod_artifact.get_version_content(bsm)
+        alias = repo.put_alias(\"my-app\", \"prod\", version=version.version)
+
+        # Retrieve via alias with explicit session
+        prod_artifact = repo.get_alias(\"my-app\", \"prod\", bsm=bsm)
+        content = prod_artifact.get_version_content(bsm)
 
     **Key Features**:
 
@@ -567,11 +608,13 @@ class Repository:
     - **Traffic Splitting**: Weighted routing for canary deployments
     - **Atomic Operations**: Consistent state management across S3 and DynamoDB
     - **Cost Optimization**: Efficient data placement for minimal storage costs
+    - **Session Flexibility**: Support for both global and explicit session management
 
     .. note::
 
         The Repository requires both S3 and DynamoDB permissions. Use the :meth:`bootstrap`
-        method to create necessary AWS resources automatically.
+        method to create necessary AWS resources and bind the underlying libraries to
+        your boto session automatically.
     """
 
     aws_region: str = dataclasses.field()
@@ -635,6 +678,7 @@ class Repository:
             )
 
         .. note::
+
             This operation is idempotent and safe to run multiple times.
             Existing resources will not be modified.
         """
@@ -646,24 +690,6 @@ class Repository:
             dynamodb_write_capacity_units=dynamodb_write_capacity_units,
             dynamodb_read_capacity_units=dynamodb_read_capacity_units,
         )
-
-    @property
-    def _artifact_class(self) -> T.Type[dynamodb.Artifact]:
-        class Artifact_(dynamodb.Artifact):
-            class Meta:
-                table_name = self.dynamodb_table_name
-                region = self.aws_region
-
-        return Artifact_
-
-    @property
-    def _alias_class(self) -> T.Type[dynamodb.Alias]:
-        class Alias_(dynamodb.Alias):
-            class Meta:
-                table_name = self.dynamodb_table_name
-                region = self.aws_region
-
-        return Alias_
 
     def _get_artifact_object(
         self,
@@ -700,17 +726,6 @@ class Repository:
             ).uri
         return Alias(**dct)
 
-    # def connect_boto_session(self, bsm: BotoSesManager):
-    #     """
-    #     Explicitly connect the underlying DynamoDB to the specified AWS Credential.
-    #
-    #     :param bsm: ``boto_session_manager.BotoSesManager`` object.
-    #     """
-    #     context.attach_boto_session(bsm.boto_ses)
-    #     with use_boto_session
-    #     with bsm.awscli():
-    #         Connection()
-
     # ------------------------------------------------------------------------------
     # Artifact
     # ------------------------------------------------------------------------------
@@ -724,13 +739,43 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> Artifact:
         """
-        Create / Update artifact to the latest.
+        Create or update artifact to the latest version with automatic deduplication.
 
-        :param name: artifact name.
-        :param content: binary artifact content.
-        :param content_type: optional content type of the s3 object.
-        :param metadata: optional metadata of the s3 object.
-        :param tags: optional tags of the s3 object.
+        Uploads binary content to S3 and creates/updates the corresponding DynamoDB
+        metadata record. Implements SHA256-based content deduplication to avoid
+        unnecessary uploads when content hasn't changed.
+
+        :param name: Artifact name identifier
+        :param content: Binary artifact content to upload
+        :param content_type: MIME content type for S3 object (e.g., "application/zip")
+        :param metadata: Additional S3 object metadata key-value pairs
+        :param tags: S3 object tags for categorization and billing
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+            If None, uses the global session established by bootstrap
+
+        :returns: Public API Artifact object with integrated S3 access capabilities
+
+        **Usage Examples**::
+
+            # Basic artifact upload
+            artifact = repo.put_artifact("my-app", binary_content)
+
+            # Upload with content type and metadata
+            artifact = repo.put_artifact(
+                name="my-app",
+                content=zip_content,
+                content_type="application/zip",
+                metadata={"build_id": "12345", "environment": "production"},
+                tags={"team": "backend", "project": "api"}
+            )
+
+            # Upload with explicit session
+            artifact = repo.put_artifact("my-app", content, bsm=custom_bsm)
+
+        .. note::
+
+            Content deduplication uses SHA256 hashing. If content hasn't changed,
+            only the timestamp is updated, avoiding unnecessary S3 uploads.
         """
         # Step 1: Create DynamoDB artifact record for LATEST version
         artifact = dynamodb.Artifact.new(name=name)
@@ -788,6 +833,9 @@ class Repository:
         version: T.Union[int, str],
         bsm: T.Optional[BotoSesManager] = None,
     ) -> dynamodb.Artifact:
+        """
+        Retrieve a specific artifact version from DynamoDB.
+        """
         try:
             with use_boto_session(dynamodb.Artifact, bsm):
                 # Use encode_version_sk to handle both int and str versions
@@ -810,10 +858,40 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> Artifact:
         """
-        Return the information about the artifact or artifact version.
+        Retrieve detailed information about a specific artifact version.
 
-        :param name: artifact name.
-        :param version: artifact version. If ``None``, return the latest version.
+        Fetches artifact metadata from DynamoDB and constructs a public API
+        Artifact object with integrated S3 access capabilities. Returns the
+        LATEST version by default when no version is specified.
+
+        :param name: Artifact name identifier
+        :param version: Specific version to retrieve (int, str, or None for LATEST)
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+            If None, uses the global session established by bootstrap
+
+        :returns: Public API Artifact object with metadata and S3 content access
+
+        :raises ArtifactNotFoundError: If artifact or version doesn't exist or is deleted
+
+        **Usage Examples**::
+
+            # Get latest version
+            artifact = repo.get_artifact_version("my-app")
+
+            # Get specific numbered version
+            artifact = repo.get_artifact_version("my-app", version=5)
+
+            # Get version with explicit session
+            artifact = repo.get_artifact_version("my-app", version="3", bsm=custom_bsm)
+
+            # Access artifact properties
+            print(f"Version: {artifact.version}")
+            print(f"Updated: {artifact.update_at}")
+            print(f"SHA256: {artifact.sha256}")
+            print(f"S3 URI: {artifact.s3uri}")
+
+            # Download content
+            content = artifact.get_content(bsm)
         """
         if version is None:
             version = constants.LATEST_VERSION
@@ -830,10 +908,39 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> T.List[Artifact]:
         """
-        Return a list of artifact versions. The latest version is always the first item.
-        And the newer version comes first.
+        Retrieve all versions of an artifact in descending order by version number.
 
-        :param name: artifact name.
+        Queries DynamoDB for all non-deleted versions of the specified artifact.
+        Returns a list ordered from newest to oldest, with LATEST always appearing
+        first if it exists.
+
+        :param name: Artifact name identifier to list versions for
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+            If None, uses the global session established by bootstrap
+
+        :returns: List of public API Artifact objects ordered by version (newest first)
+
+        **Usage Examples**::
+
+            # List all versions of an artifact
+            versions = repo.list_artifact_versions("my-app")
+
+            # Access version information
+            for artifact in versions:
+                print(f"Version {artifact.version}: {artifact.update_at}")
+
+            # List versions with explicit session
+            versions = repo.list_artifact_versions("my-app", bsm=custom_bsm)
+
+            # Get latest and previous version
+            if len(versions) >= 2:
+                latest = versions[0]  # Always LATEST if it exists
+                previous = versions[1]  # Most recent numbered version
+
+        .. note::
+
+            Only returns non-deleted versions. Soft-deleted versions are excluded
+            from the results.
         """
         with use_boto_session(dynamodb.Artifact, bsm):
             artifact_list = [
@@ -852,10 +959,44 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> Artifact:
         """
-        Creates a version from the latest artifact. Use versions to create an
-        immutable snapshot of your latest artifact.
+        Create an immutable numbered version from the current LATEST artifact.
 
-        :param name: artifact name.
+        Performs a server-side copy in S3 from LATEST to a new numbered version
+        and creates the corresponding DynamoDB metadata record. This creates a
+        permanent, immutable snapshot that can be used for deployments and rollbacks.
+
+        :param name: Artifact name identifier to publish version for
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+            If None, uses the global session established by bootstrap
+
+        :returns: Public API Artifact object representing the newly created version
+
+        :raises ArtifactNotFoundError: If no LATEST version exists for the artifact
+
+        **Usage Examples**::
+
+            # Create version 1 from LATEST
+            version = repo.publish_artifact_version("my-app")
+            print(f"Created version: {version.version}")
+
+            # Publish version with explicit session
+            version = repo.publish_artifact_version("my-app", bsm=custom_bsm)
+
+            # Typical deployment workflow
+            # 1. Upload new content to LATEST
+            artifact = repo.put_artifact("my-app", new_content)
+
+            # 2. Create immutable version
+            version = repo.publish_artifact_version("my-app")
+
+            # 3. Deploy to production
+            repo.put_alias("my-app", "prod", version=version.version)
+
+        .. note::
+
+            Versions are automatically numbered sequentially starting from 1.
+            The version number is determined by incrementing the highest existing
+            numbered version.
         """
         # Step 1: Query for up to 2 most recent versions to determine next version number
         # Query returns results in descending order: [LATEST, most_recent_version]
@@ -907,13 +1048,34 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ):
         """
-        Deletes a specific version of artifact. If version is not specified,
-        the latest version is deleted. Note that this is a soft delete,
-        neither the S3 artifact nor the DynamoDB item is deleted. It is just
-        become "invisible" to the :func:`get_artifact` and :func:`list_artifacts``.
+        Soft delete a specific artifact version by marking it as deleted.
 
-        :param name: artifact name.
-        :param version: artifact version. If ``None``, delete the latest version.
+        Marks the artifact version as deleted in DynamoDB without removing the
+        actual S3 binary or DynamoDB item. Soft-deleted versions become invisible
+        to get_artifact_version and list_artifact_versions operations but can be
+        recovered if needed.
+
+        :param name: Artifact name identifier
+        :param version: Specific version to delete (int, str, or None for LATEST)
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        **Usage Examples**::
+
+            # Soft delete latest version
+            repo.delete_artifact_version("my-app")
+
+            # Soft delete specific version
+            repo.delete_artifact_version("my-app", version=5)
+
+            # Delete with explicit session
+            repo.delete_artifact_version("my-app", version="3", bsm=custom_bsm)
+
+        .. note::
+
+            This is a soft delete operation. The S3 binary and DynamoDB record
+            remain intact but marked as deleted. Use purge_artifact for permanent
+            deletion if needed.
         """
         if version is None:
             version = constants.LATEST_VERSION
@@ -931,9 +1093,35 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> T.List[str]:
         """
-        Return a list of artifact names in this repository.
+        Retrieve all artifact names available in this repository.
 
-        :return: list of artifact names.
+        Scans the S3 bucket directory structure to identify all artifact names
+        that have been uploaded to the repository. This provides a high-level
+        view of all artifacts without listing individual versions.
+
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        :returns: List of artifact name strings found in the repository
+
+        **Usage Examples**::
+
+            # List all artifact names
+            names = repo.list_artifact_names()
+            print(f"Found {len(names)} artifacts: {names}")
+
+            # List names with explicit session
+            names = repo.list_artifact_names(bsm=custom_bsm)
+
+            # Iterate through all artifacts
+            for name in repo.list_artifact_names():
+                versions = repo.list_artifact_versions(name)
+                print(f"{name}: {len(versions)} versions")
+
+        .. note::
+
+            This method scans the S3 directory structure, so it may be slower for
+            repositories with many artifacts compared to DynamoDB-based queries.
         """
         names = list()
         for p in self.s3dir_artifact_store.iterdir(bsm=bsm):
@@ -954,18 +1142,54 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> Alias:
         """
-        Creates an alias for an artifact version. If ``version`` is not specified,
-        the latest version is used.
+        Create or update an alias pointing to artifact version(s) with optional traffic splitting.
 
-        You can also map an alias to split invocation requests between two versions.
-        Use the ``secondary_version`` and ``secondary_version_weight`` to specify
-        a second version and the percentage of invocation requests that it receives.
+        Creates a named alias that can point to a single version or split traffic between
+        two versions for advanced deployment patterns like canary releases and blue/green
+        deployments. Validates that target versions exist before creating the alias.
 
-        :param name: artifact name.
-        :param alias: alias name. alias name cannot have hyphen
-        :param version: artifact version. If ``None``, the latest version is used.
-        :param secondary_version: see above.
-        :param secondary_version_weight: an integer between 0 ~ 100.
+        :param name: Artifact name identifier the alias belongs to
+        :param alias: Alias name identifier (cannot contain hyphens due to DynamoDB constraints)
+        :param version: Primary version to point to (int, str, or None for LATEST)
+        :param secondary_version: Optional secondary version for traffic splitting
+        :param secondary_version_weight: Percentage (0-99) of traffic routed to secondary version
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        :returns: Public API Alias object with traffic splitting configuration
+
+        :raises ValueError: If alias contains hyphens, traffic weight is invalid, or versions are identical
+        :raises TypeError: If secondary_version_weight is not an integer
+        :raises ArtifactNotFoundError: If target version(s) don't exist
+
+        **Usage Examples**::
+
+            # Simple alias pointing to latest
+            alias = repo.put_alias("my-app", "prod")
+
+            # Alias pointing to specific version
+            alias = repo.put_alias("my-app", "prod", version=5)
+
+            # Canary deployment with 20% traffic to new version
+            alias = repo.put_alias(
+                name="my-app",
+                alias="prod",
+                version=5,                    # 80% traffic
+                secondary_version=6,          # 20% traffic
+                secondary_version_weight=20
+            )
+
+            # Blue/green deployment preparation
+            alias = repo.put_alias("my-app", "staging", version=6)  # Test on staging
+            alias = repo.put_alias("my-app", "prod", version=6)     # Switch production
+
+            # Create alias with explicit session
+            alias = repo.put_alias("my-app", "prod", version=5, bsm=custom_bsm)
+
+        .. note::
+
+            Alias names cannot contain hyphens due to DynamoDB key encoding constraints.
+            Use underscores or camelCase for multi-word aliases.
         """
         # Step 1: Validate alias naming constraints
         # Hyphens are forbidden due to DynamoDB key encoding conflicts
@@ -1032,10 +1256,39 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> Alias:
         """
-        Return details about the alias.
+        Retrieve detailed information about a specific artifact alias.
 
-        :param name: artifact name.
-        :param alias: alias name. alias name cannot have hyphen
+        Fetches alias configuration from DynamoDB and constructs a public API
+        Alias object with traffic splitting details and S3 access capabilities
+        for both primary and secondary versions if configured.
+
+        :param name: Artifact name identifier the alias belongs to
+        :param alias: Alias name identifier to retrieve
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        :returns: Public API Alias object with version details and S3 access
+
+        :raises AliasNotFoundError: If the alias doesn't exist
+
+        **Usage Examples**::
+
+            # Get simple alias
+            alias = repo.get_alias("my-app", "prod")
+            print(f"Production points to version: {alias.version}")
+
+            # Get alias with traffic splitting
+            alias = repo.get_alias("my-app", "canary")
+            if alias.secondary_version:
+                print(f"Traffic split: {alias.version} ({100-alias.secondary_version_weight}%) "
+                      f"and {alias.secondary_version} ({alias.secondary_version_weight}%)")
+
+            # Get alias with explicit session
+            alias = repo.get_alias("my-app", "prod", bsm=custom_bsm)
+
+            # Use alias for content access
+            content = alias.get_version_content(bsm)  # Always primary version
+            selected_uri = alias.random_artifact()    # Traffic-weighted selection
         """
         try:
             with use_boto_session(dynamodb.Alias, bsm):
@@ -1053,9 +1306,40 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> T.List[Alias]:
         """
-        Returns a list of aliases for an artifact.
+        Retrieve all aliases configured for a specific artifact.
 
-        :param name: artifact name.
+        Queries DynamoDB for all aliases associated with the specified artifact
+        and constructs a list of public API Alias objects with complete traffic
+        splitting configurations and S3 access capabilities.
+
+        :param name: Artifact name identifier to list aliases for
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        :returns: List of public API Alias objects for the artifact
+
+        **Usage Examples**::
+
+            # List all aliases for an artifact
+            aliases = repo.list_aliases("my-app")
+            for alias in aliases:
+                print(f"Alias {alias.alias} -> version {alias.version}")
+
+            # List aliases with explicit session
+            aliases = repo.list_aliases("my-app", bsm=custom_bsm)
+
+            # Check for specific deployment patterns
+            for alias in repo.list_aliases("my-app"):
+                if alias.secondary_version:
+                    print(f"Canary: {alias.alias} splitting traffic between "
+                          f"v{alias.version} and v{alias.secondary_version}")
+                else:
+                    print(f"Single: {alias.alias} -> v{alias.version}")
+
+        .. note::
+
+            Returns all aliases regardless of their traffic splitting configuration.
+            Check the secondary_version field to determine if traffic splitting is active.
         """
         with use_boto_session(dynamodb.Alias, bsm):
             alias_list = [
@@ -1075,8 +1359,34 @@ class Repository:
         """
         Permanently delete an alias from the repository.
 
-        It only removes the alias from DynamoDB. It won't delete the
-        underlying artifact version or S3 object.
+        Removes the alias record from DynamoDB completely. This is a hard delete
+        operation that cannot be undone. The underlying artifact versions and
+        S3 objects remain intact and unaffected.
+
+        :param name: Artifact name identifier the alias belongs to
+        :param alias: Alias name identifier to delete
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        **Usage Examples**::
+
+            # Delete production alias
+            repo.delete_alias("my-app", "prod")
+
+            # Delete with explicit session
+            repo.delete_alias("my-app", "staging", bsm=custom_bsm)
+
+            # Safe cleanup workflow
+            # 1. First redirect traffic to a safe version
+            repo.put_alias("my-app", "prod", version="stable_version")
+
+            # 2. Then delete the problematic alias
+            repo.delete_alias("my-app", "canary")
+
+        .. warning::
+
+            This is a permanent deletion. The alias configuration including any
+            traffic splitting setup will be completely lost and cannot be recovered.
         """
         with use_boto_session(dynamodb.Alias, bsm):
             res = dynamodb.Alias.new(name=name, alias=alias).delete()
@@ -1090,14 +1400,50 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ) -> T.Tuple[datetime, T.List[Artifact]]:
         """
-        If an artifact version is within the last ``keep_last_n`` versions
-        and is not older than ``purge_older_than_secs`` seconds, it will not be deleted.
-        Otherwise, it will be deleted. In addition, the latest version will
-        always be kept.
+        Selectively soft-delete old artifact versions based on retention policies.
 
-        :param name: artifact name.
-        :param keep_last_n: number of versions to keep.
-        :param purge_older_than_secs: seconds to keep.
+        Applies retention rules to automatically clean up old versions while preserving
+        recent versions and the LATEST version. Uses both count-based and age-based
+        retention criteria to determine which versions to soft-delete.
+
+        :param name: Artifact name identifier to purge versions for
+        :param keep_last_n: Minimum number of recent versions to preserve (default: 10)
+        :param purge_older_than_secs: Age threshold in seconds for purging (default: 90 days)
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        :returns: Tuple of (purge_timestamp, list_of_deleted_artifacts)
+
+        **Retention Logic**:
+
+        A version is soft-deleted if ALL of the following conditions are met:
+
+        - Version is NOT in the most recent ``keep_last_n`` versions
+        - Version is older than ``purge_older_than_secs`` seconds
+        - Version is NOT the LATEST version (always preserved)
+
+        **Usage Examples**::
+
+            # Use default retention (keep 10 recent, purge >90 days)
+            purge_time, deleted = repo.purge_artifact_versions("my-app")
+            print(f"Purged {len(deleted)} versions at {purge_time}")
+
+            # Custom retention policy (keep 5 recent, purge >30 days)
+            purge_time, deleted = repo.purge_artifact_versions(
+                name="my-app",
+                keep_last_n=5,
+                purge_older_than_secs=30 * 24 * 60 * 60  # 30 days
+            )
+
+            # Aggressive cleanup (keep only 3 recent, purge >7 days)
+            purge_time, deleted = repo.purge_artifact_versions(
+                "my-app", keep_last_n=3, purge_older_than_secs=7*24*60*60, bsm=custom_bsm
+            )
+
+        .. note::
+
+            This performs soft deletion only. Use purge_artifact for permanent deletion
+            of all artifact data including S3 binaries.
         """
         artifact_list = self.list_artifact_versions(name=name, bsm=bsm)
         purge_time = get_utc_now()
@@ -1119,17 +1465,38 @@ class Repository:
         bsm: T.Optional[BotoSesManager] = None,
     ):
         """
-        Completely delete all artifacts and aliases of the given artifact name.
-        This operation is irreversible. It will remove all related S3 artifacts
-        and DynamoDB items.
+        Permanently delete all versions and aliases for a specific artifact.
 
-        :param name: artifact name.
+        Performs complete cleanup by removing all S3 binaries, DynamoDB metadata
+        records, and alias configurations for the specified artifact. This is
+        an irreversible hard delete operation.
+
+        :param name: Artifact name identifier to completely purge
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+            If None, uses the global session established by bootstrap
+
+        **Usage Examples**::
+
+            # Permanently delete all data for an artifact
+            repo.purge_artifact("my-app")
+
+            # Delete with explicit session
+            repo.purge_artifact("my-app", bsm=custom_bsm)
+
+            # Safe deletion workflow
+            # 1. First ensure no aliases point to this artifact
+            aliases = repo.list_aliases("my-app")
+            for alias in aliases:
+                repo.delete_alias("my-app", alias.alias)
+
+            # 2. Then purge the artifact completely
+            repo.purge_artifact("my-app")
 
         .. danger::
 
-            This operation is IRREVERSIBLE. All versions, aliases, and metadata
-            for this artifact will be permanently lost. Ensure no systems depend
-            on this artifact before deletion.
+            This operation is IRREVERSIBLE. All versions, aliases, metadata,
+            and S3 binaries for this artifact will be permanently destroyed.
+            Ensure no systems depend on this artifact before deletion.
         """
         s3path = self.get_artifact_s3path(name=name, version=constants.LATEST_VERSION)
         s3dir = s3path.parent
@@ -1149,15 +1516,40 @@ class Repository:
 
     def purge_all(self, bsm: T.Optional[BotoSesManager] = None):
         """
-        Completely delete all artifacts and aliases in this Repository
-        This operation is irreversible. It will remove all related S3 artifacts
-        and DynamoDB items.
+        Permanently delete ALL artifacts and aliases in the entire repository.
+
+        Performs complete repository cleanup by removing all S3 content and
+        DynamoDB data. This destroys the entire repository content while
+        leaving the AWS resources (bucket, table) intact for future use.
+
+        :param bsm: Optional boto session manager for explicit AWS credentials/configuration.
+           If None, uses the global session established by bootstrap
+
+        **Usage Examples**::
+
+            # Nuclear option - delete everything (typically for testing)
+            repo.purge_all()
+
+            # Purge with explicit session
+            repo.purge_all(bsm=custom_bsm)
+
+            # Repository reset workflow
+            # 1. Backup critical data if needed
+            important_artifacts = ["critical-app", "backup-service"]
+            for name in important_artifacts:
+                artifact = repo.get_artifact_version(name)
+                # ... backup logic ...
+
+            # 2. Purge everything
+            repo.purge_all()
+
+            # 3. Repository is now empty but ready for new artifacts
 
         .. danger::
 
-            This operation is IRREVERSIBLE and will destroy ALL artifacts,
-            versions, and aliases in the repository. Only use for testing
-            or when completely decommissioning the repository.
+            This operation is IRREVERSIBLE and destroys ALL artifacts,
+            versions, aliases, and metadata in the repository. Only use
+            for testing or complete repository decommissioning.
         """
         self.s3dir_artifact_store.delete(bsm=bsm)
         # note: Artifact and Alias are in the same DynamoDB table
