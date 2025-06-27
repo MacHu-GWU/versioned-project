@@ -19,11 +19,23 @@ x.y.z (Backlog)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**
 
+- **API Stabilization Release**: This release marks the stable API milestone with comprehensive documentation improvements and enhanced session management capabilities.
+- **Enhanced Session Management**: Added comprehensive support for explicit boto session management via optional ``bsm`` parameter across all Repository methods.
+- **Improved Public API Safety**: Enhanced documentation to clearly distinguish between safe public API classes (``Artifact``, ``Alias``) and internal ORM objects, preventing accidental data corruption.
+
 **Minor Improvements**
 
-**Bugfixes**
+- **Comprehensive Documentation Overhaul**: All class and method docstrings have been significantly enhanced with detailed usage examples, parameter documentation, and best practices.
+- **Bootstrap Integration**: Enhanced ``bootstrap()`` method documentation explaining how it binds s3pathlib and pynamodb libraries to boto sessions.
+- **Cross-Reference Documentation**: Added proper Sphinx cross-references between public API and internal ORM classes for better developer experience.
+- **Traffic Splitting Examples**: Added comprehensive examples for canary deployments and blue/green deployment patterns in alias documentation.
+- **Session Management Patterns**: Documented both global session (via bootstrap) and explicit session (via ``bsm`` parameter) usage patterns.
 
 **Miscellaneous**
+
+- **README Modernization**: Completely rewritten README.rst to be more concise and high-level, directing users to comprehensive documentation website.
+- **No Breaking Changes**: Full backward compatibility maintained - all existing code will continue to work without modifications.
+- **Type Safety**: Enhanced type hints and parameter validation documentation for better IDE support and developer experience.
 
 
 0.6.1 (2023-10-22)
