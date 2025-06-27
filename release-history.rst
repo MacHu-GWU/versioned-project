@@ -19,6 +19,7 @@ x.y.z (Backlog)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**
 
+- Drop support for Python 3.8, now only support Python 3.9+.
 - **API Stabilization Release**: This release marks the stable API milestone with comprehensive documentation improvements and enhanced session management capabilities.
 - **Enhanced Session Management**: Added comprehensive support for explicit boto session management via optional ``bsm`` parameter across all Repository methods.
 - **Improved Public API Safety**: Enhanced documentation to clearly distinguish between safe public API classes (``Artifact``, ``Alias``) and internal ORM objects, preventing accidental data corruption.
